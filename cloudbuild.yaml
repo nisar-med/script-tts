@@ -36,6 +36,10 @@ steps:
   # Set run-time environment variables from the same substitution variables
   - '--set-env-vars=API_KEY=${_GEMINI_API_KEY},GEMINI_API_KEY=${_GEMINI_API_KEY}'
 
+# Specify the logging option to resolve the service account permission issue
+options:
+  logging: CLOUD_LOGGING_ONLY
+
 # Define default substitutions. These will be overridden by your trigger settings.
 substitutions:
   _SERVICE_NAME: 'script-to-multilingual-audio'
