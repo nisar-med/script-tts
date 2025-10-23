@@ -1,0 +1,5 @@
+{
+  "name": "Script to Multilingual Audio",
+  "description": "An application that extracts dialogue from a script using a language model and then converts the dialogue into multilingual, multi-speaker audio using a Text-to-Speech (TTS) model.",
+  "requestFramePermissions": []
+}
