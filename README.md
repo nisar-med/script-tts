@@ -1,20 +1,47 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# AI Studio Gemini App Proxy Server
 
-# Run and deploy your AI Studio app
-
-This contains everything you need to run your app locally.
-
-View your app in AI Studio: https://ai.studio/apps/drive/18izjQ4b6hEzsub9Dl5fc-itU9gadIwjb
-
-## Run Locally
-
-**Prerequisites:**  Node.js
+This nodejs proxy server lets you run your AI Studio Gemini application unmodified, without exposing your API key in the frontend code.
 
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## Instructions
+
+**Prerequisites**:
+- [Google Cloud SDK / gcloud CLI](https://cloud.google.com/sdk/docs/install)
+- (Optional) Gemini API Key
+
+1. Download or copy the files of your AI Studio app into this directory at the root level.
+2. If your app calls the Gemini API, create a Secret for your API key:
+     ```
+     echo -n "${GEMINI_API_KEY}" | gcloud secrets create gemini_api_key --data-file=-
+     ```
+
+3.  Deploy to Cloud Run (optionally including API key):
+    ```
+    gcloud run deploy my-app --source=. --update-secrets=GEMINI_API_KEY=gemini_api_key:latest
+    ```
+
+
+## Local Development
+
+For local development, the server needs to run over HTTPS to support the service worker. This requires a self-signed SSL certificate.
+
+1.  **Generate SSL Certificates:**
+    Navigate to the `server` directory and run the following command to generate a `key.pem` and `cert.pem` file:
+
+    ```bash
+    openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -sha256 -days 365 -nodes -subj "/C=US/ST=CA/L=Mountain View/O=Google/OU=Test/CN=localhost"
+    ```
+
+2.  **Install Dependencies:**
+    In the `server` directory, run:
+    ```bash
+    npm install
+    ```
+
+3.  **Run the Server:**
+    ```bash
+    npm run dev
+    ```
+    The server will be available at `https://localhost:3000`. You will need to accept the self-signed certificate in your browser.
+
+These certificate files are included in the `server/.gitignore` and will not be checked into source control. The server is configured to fall back to HTTP if these files are not present, which is the expected behavior for the Google Cloud Run environment.
