@@ -1,0 +1,46 @@
+steps:
+# 1. Build the container image using substitution variables
+- name: 'gcr.io/cloud-builders/docker'
+  id: 'Build'
+  args:
+  - 'build'
+  - '--build-arg'
+  - 'VITE_FIREBASE_API_KEY=${_VITE_FIREBASE_API_KEY}'
+  - '--build-arg'
+  - 'VITE_FIREBASE_AUTH_DOMAIN=${_VITE_FIREBASE_AUTH_DOMAIN}'
+  - '--build-arg'
+  - 'GEMINI_API_KEY=${_GEMINI_API_KEY}'
+  - '-t'
+  - '${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE_NAME}:$COMMIT_SHA'
+  - '.'
+
+# 2. Push the container image to Artifact Registry
+- name: 'gcr.io/cloud-builders/docker'
+  id: 'Push'
+  args:
+  - 'push'
+  - '${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE_NAME}:$COMMIT_SHA'
+
+# 3. Deploy the new container to Cloud Run
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  id: 'Deploy'
+  entrypoint: gcloud
+  args:
+  - 'run'
+  - 'deploy'
+  - '${_SERVICE_NAME}'
+  - '--image=${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE_NAME}:$COMMIT_SHA'
+  - '--region=${_LOCATION}'
+  - '--platform=managed'
+  - '--allow-unauthenticated'
+  # Set run-time environment variables from the same substitution variables
+  - '--set-env-vars=API_KEY=${_GEMINI_API_KEY},GEMINI_API_KEY=${_GEMINI_API_KEY}'
+
+# Define default substitutions. These will be overridden by your trigger settings.
+substitutions:
+  _SERVICE_NAME: 'script-to-multilingual-audio'
+  _REPOSITORY: 'script-tts-repo'
+  _LOCATION: 'us-west1'
+  _VITE_FIREBASE_API_KEY: ''
+  _VITE_FIREBASE_AUTH_DOMAIN: ''
+  _GEMINI_API_KEY: ''
