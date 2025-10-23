@@ -1,14 +1,24 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
+import type { User } from 'firebase/auth';
+import { onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
+import { auth, isFirebaseConfigured } from './firebase/config';
 import type { DialogueLine, Character } from './types';
 import { extractDialogueFromScript, generateDialogueAudio } from './services/geminiService';
 import { decode, createWavBlob } from './utils/audioUtils';
 import { MALE_VOICES, FEMALE_VOICES, SUPPORTED_LANGUAGES } from './constants';
+import { Header } from './components/Header';
+import { Auth } from './components/Auth';
 import { ScriptInput } from './components/ScriptInput';
 import { DialoguePreview } from './components/DialoguePreview';
 import { AudioPlayer } from './components/AudioPlayer';
+import { LoadingSpinner } from './components/icons';
 
 const App: React.FC = () => {
+    // Auth State
+    const [user, setUser] = useState<User | null>(null);
+    const [authLoading, setAuthLoading] = useState<boolean>(true);
+
+    // App State
     const [script, setScript] = useState<string>('');
     const [dialogues, setDialogues] = useState<DialogueLine[]>([]);
     const [characters, setCharacters] = useState<Character[]>([]);
@@ -17,6 +27,46 @@ const App: React.FC = () => {
     const [audioUrl, setAudioUrl] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [scriptLanguage, setScriptLanguage] = useState<string>(SUPPORTED_LANGUAGES[0].code);
+
+    // Auth Listener
+    useEffect(() => {
+        if (!auth) {
+            setAuthLoading(false);
+            return;
+        };
+        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+            setUser(currentUser);
+            setAuthLoading(false);
+        });
+        return () => unsubscribe();
+    }, []);
+    
+    // Auth Handlers
+    const handleSignIn = async () => {
+        if (!auth) return;
+        const provider = new GoogleAuthProvider();
+        try {
+            await signInWithPopup(auth, provider);
+        } catch (error) {
+            console.error("Error signing in:", error);
+            setError("Failed to sign in. Please try again.");
+        }
+    };
+
+    const handleSignOut = async () => {
+        if (!auth) return;
+        try {
+            await signOut(auth);
+            // Reset app state on sign out for a clean slate
+            setScript('');
+            setDialogues([]);
+            setAudioUrl(null);
+            setError(null);
+        } catch (error) {
+            console.error("Error signing out:", error);
+        }
+    };
+
 
     useEffect(() => {
         if (dialogues.length > 0) {
@@ -126,17 +176,26 @@ const App: React.FC = () => {
         URL.revokeObjectURL(url);
     }, [dialogues]);
     
+    if (!isFirebaseConfigured) {
+        return (
+            <div className="min-h-screen bg-slate-900 text-slate-200 flex items-center justify-center p-4">
+                <div className="bg-red-900/50 border border-red-700 text-red-300 px-6 py-4 rounded-lg max-w-lg text-center shadow-lg">
+                    <h2 className="text-xl font-bold mb-2">Firebase Not Configured</h2>
+                    <p>Authentication is disabled because Firebase credentials are missing. Please follow these steps:</p>
+                    <ol className="list-decimal list-inside text-left mt-4 space-y-2">
+                        <li>Create a <code className="bg-slate-700 p-1 rounded font-mono">.env</code> file in the root of your project.</li>
+                        <li>Add your Firebase project configuration to the <code className="bg-slate-700 p-1 rounded font-mono">.env</code> file. You can copy the format from <code className="bg-slate-700 p-1 rounded font-mono">.env.example</code>.</li>
+                        <li>Restart your development server.</li>
+                    </ol>
+                </div>
+            </div>
+        );
+    }
+    
     return (
         <div className="min-h-screen bg-slate-900 text-slate-200 font-sans p-4 sm:p-6 lg:p-8">
             <main className="max-w-4xl mx-auto">
-                <header className="text-center mb-8">
-                    <h1 className="text-4xl sm:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-teal-500">
-                        Script to Multilingual Audio
-                    </h1>
-                    <p className="mt-2 text-lg text-slate-400">
-                        Bring your scripts to life with AI-powered dialogue extraction and multi-speaker TTS.
-                    </p>
-                </header>
+                <Header user={user} onSignOut={handleSignOut} />
 
                 {error && (
                     <div className="bg-red-900/50 border border-red-700 text-red-300 px-4 py-3 rounded-lg relative mb-6" role="alert">
@@ -144,32 +203,40 @@ const App: React.FC = () => {
                         <span className="block sm:inline">{error}</span>
                     </div>
                 )}
-
-                <div className="space-y-8">
-                   <ScriptInput 
-                        script={script}
-                        setScript={setScript}
-                        onExtract={handleExtractDialogue}
-                        isLoading={isLoadingExtraction}
-                   />
-                   
-                   {dialogues.length > 0 && (
-                       <DialoguePreview
-                           dialogues={dialogues}
-                           characters={characters}
-                           onCharacterVoiceChange={handleCharacterVoiceChange}
-                           onDeliveryNoteChange={handleDeliveryNoteChange}
-                           onGenerateAudio={handleGenerateAudio}
-                           isLoading={isLoadingAudio}
-                           scriptLanguage={scriptLanguage}
-                           onDownloadDialogue={handleDownloadDialogue}
+                
+                {authLoading ? (
+                     <div className="flex items-center justify-center h-64">
+                        <LoadingSpinner className="w-12 h-12 text-cyan-400" />
+                    </div>
+                ) : user ? (
+                    <div className="space-y-8">
+                       <ScriptInput 
+                            script={script}
+                            setScript={setScript}
+                            onExtract={handleExtractDialogue}
+                            isLoading={isLoadingExtraction}
                        />
-                   )}
+                       
+                       {dialogues.length > 0 && (
+                           <DialoguePreview
+                               dialogues={dialogues}
+                               characters={characters}
+                               onCharacterVoiceChange={handleCharacterVoiceChange}
+                               onDeliveryNoteChange={handleDeliveryNoteChange}
+                               onGenerateAudio={handleGenerateAudio}
+                               isLoading={isLoadingAudio}
+                               scriptLanguage={scriptLanguage}
+                               onDownloadDialogue={handleDownloadDialogue}
+                           />
+                       )}
 
-                   {audioUrl && (
-                       <AudioPlayer audioUrl={audioUrl} />
-                   )}
-                </div>
+                       {audioUrl && (
+                           <AudioPlayer audioUrl={audioUrl} />
+                       )}
+                    </div>
+                ) : (
+                    <Auth onSignIn={handleSignIn} isLoading={authLoading} />
+                )}
             </main>
         </div>
     );
