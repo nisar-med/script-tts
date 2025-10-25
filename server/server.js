@@ -137,11 +137,6 @@ app.use('/api-proxy', async (req, res, next) => {
 
         const apiResponse = await axios(axiosConfig);
 
-        // Set CORS headers for service worker
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Goog-Api-Key');
-
         // Pass through response headers from Gemini API to the client
         for (const header in apiResponse.headers) {
             res.setHeader(header, apiResponse.headers[header]);
@@ -254,29 +249,13 @@ app.use('/public', express.static(publicPath));
 app.use(express.static(staticPath));
 
 // Start the server
-const sslKeyPath = path.join(__dirname, 'key.pem');
-const sslCertPath = path.join(__dirname, 'cert.pem');
-
 let server;
 
-if (fs.existsSync(sslKeyPath) && fs.existsSync(sslCertPath)) {
-    // Use HTTPS if SSL certificates are found
-    server = https.createServer({
-        key: fs.readFileSync(sslKeyPath),
-        cert: fs.readFileSync(sslCertPath)
-    }, app).listen(port, () => {
-        console.log(`Server listening on https://localhost:${port}`);
-        console.log(`HTTPS proxy active on /api-proxy/**`);
-        console.log(`WebSocket proxy active on /api-proxy/**`);
-    });
-} else {
-    // Fallback to HTTP if no SSL certificates are found (like in Cloud Run)
-    server = app.listen(port, () => {
-        console.log(`Server listening on http://localhost:${port}`);
-        console.log(`HTTP proxy active on /api-proxy/**`);
-        console.log(`WebSocket proxy active on /api-proxy/**`);
-    });
-}
+server = app.listen(port, () => {
+    console.log(`Server listening on http://localhost:${port}`);
+    console.log(`HTTP proxy active on /api-proxy/**`);
+    console.log(`WebSocket proxy active on /api-proxy/**`);
+});
 
 // Create WebSocket server and attach it to the HTTP server
 const wss = new WebSocket.Server({ noServer: true });

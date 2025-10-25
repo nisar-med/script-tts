@@ -8,8 +8,6 @@ steps:
   - 'VITE_FIREBASE_API_KEY=${_VITE_FIREBASE_API_KEY}'
   - '--build-arg'
   - 'VITE_FIREBASE_AUTH_DOMAIN=${_VITE_FIREBASE_AUTH_DOMAIN}'
-  - '--build-arg'
-  - 'GEMINI_API_KEY=${_GEMINI_API_KEY}'
   - '-t'
   - '${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE_NAME}:$COMMIT_SHA'
   - '.'

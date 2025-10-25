@@ -3,17 +3,18 @@ FROM node:22 AS builder
 
 WORKDIR /app
 
-# Define build-time arguments for Vite and the server
+# Define build-time arguments for Vite
 ARG VITE_FIREBASE_API_KEY
 ARG VITE_FIREBASE_AUTH_DOMAIN
-ARG GEMINI_API_KEY
 
 # Set them as environment variables for the builder stage
 # Vite will use these during `npm run build`
 ENV VITE_FIREBASE_API_KEY=$VITE_FIREBASE_API_KEY
 ENV VITE_FIREBASE_AUTH_DOMAIN=$VITE_FIREBASE_AUTH_DOMAIN
-ENV GEMINI_API_KEY=$GEMINI_API_KEY
-ENV API_KEY=$GEMINI_API_KEY
+
+# Use a placeholder for the Gemini API key during the build process
+# The real key is only used by the server at runtime.
+RUN echo "API_KEY=dummy-key" > ./.env
 
 # Copy all files from the current directory
 COPY . ./
@@ -30,12 +31,6 @@ RUN bash -c 'if [ -f package.json ]; then npm install && npm run build; fi'
 
 # Stage 2: Build the final server image
 FROM node:22
-
-# Define a run-time argument for the server's API key
-ARG GEMINI_API_KEY
-# Set it as an environment variable for the final running container
-ENV GEMINI_API_KEY=$GEMINI_API_KEY
-ENV API_KEY=$GEMINI_API_KEY
 
 WORKDIR /app
 
