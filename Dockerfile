@@ -12,12 +12,10 @@ ARG VITE_FIREBASE_AUTH_DOMAIN
 ENV VITE_FIREBASE_API_KEY=$VITE_FIREBASE_API_KEY
 ENV VITE_FIREBASE_AUTH_DOMAIN=$VITE_FIREBASE_AUTH_DOMAIN
 
-# Use a placeholder for the Gemini API key during the build process
-# The real key is only used by the server at runtime.
-RUN echo "API_KEY=dummy-key" > ./.env
-
 # Copy all files from the current directory
 COPY . ./
+RUN echo "API_KEY=PLACEHOLDER" > ./.env
+RUN echo "GEMINI_API_KEY=PLACEHOLDER" >> ./.env
 
 # Install server dependencies
 WORKDIR /app/server
@@ -25,7 +23,7 @@ RUN npm install
 
 # Install dependencies and build the frontend
 WORKDIR /app
-# The build process will now use the ENV variables set above
+RUN mkdir dist
 RUN bash -c 'if [ -f package.json ]; then npm install && npm run build; fi'
 
 
