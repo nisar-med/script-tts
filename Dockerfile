@@ -4,13 +4,11 @@ FROM node:22 AS builder
 WORKDIR /app
 
 # Define build-time arguments for Vite
-ARG VITE_FIREBASE_API_KEY
-ARG VITE_FIREBASE_AUTH_DOMAIN
+ARG GOOGLE_CLIENT_ID
 
 # Set them as environment variables for the builder stage
 # Vite will use these during `npm run build`
-ENV VITE_FIREBASE_API_KEY=$VITE_FIREBASE_API_KEY
-ENV VITE_FIREBASE_AUTH_DOMAIN=$VITE_FIREBASE_AUTH_DOMAIN
+ENV GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID
 
 # Copy all files from the current directory
 COPY . ./

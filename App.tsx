@@ -1,7 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import type { User } from 'firebase/auth';
-import { onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
-import { auth, isFirebaseConfigured } from './firebase/config';
 import type { DialogueLine, Character } from './types';
 import { extractDialogueFromScript, generateDialogueAudio } from './services/geminiService';
 import { decode, createWavBlob } from './utils/audioUtils';
@@ -12,12 +9,11 @@ import { ScriptInput } from './components/ScriptInput';
 import { DialoguePreview } from './components/DialoguePreview';
 import { AudioPlayer } from './components/AudioPlayer';
 import { LoadingSpinner } from './components/icons';
-import { setAuthToken } from './utils/tokenManager';
+import { useAuth } from './contexts/AuthContext';
 
 const App: React.FC = () => {
-    // Auth State
-    const [user, setUser] = useState<User | null>(null);
-    const [authLoading, setAuthLoading] = useState<boolean>(true);
+    // Auth State from context
+    const { user, loading: authLoading, signIn, signOut } = useAuth();
 
     // App State
     const [script, setScript] = useState<string>('');
@@ -29,61 +25,10 @@ const App: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [scriptLanguage, setScriptLanguage] = useState<string>(SUPPORTED_LANGUAGES[0].code);
 
-    // Auth Listener
-    useEffect(() => {
-        if (!auth) {
-            setAuthLoading(false);
-            return;
-        };
-        const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-            setUser(currentUser);
-
-            // Get and set the Firebase ID token for API authentication
-            if (currentUser) {
-                try {
-                    const idToken = await currentUser.getIdToken();
-                    await setAuthToken(idToken);
-                    console.log('[App] Firebase ID token set for API authentication');
-                } catch (error) {
-                    console.error('[App] Error getting Firebase ID token:', error);
-                }
-            } else {
-                // User signed out, clear the token
-                await setAuthToken(null);
-                console.log('[App] Cleared Firebase ID token');
-            }
-
-            setAuthLoading(false);
-        });
-        return () => unsubscribe();
-    }, []);
-
-    // Refresh Firebase ID token periodically (every 50 minutes)
-    useEffect(() => {
-        if (!user) return;
-
-        const refreshToken = async () => {
-            try {
-                const idToken = await user.getIdToken(true); // Force refresh
-                await setAuthToken(idToken);
-                console.log('[App] Firebase ID token refreshed');
-            } catch (error) {
-                console.error('[App] Error refreshing Firebase ID token:', error);
-            }
-        };
-
-        // Refresh every 50 minutes (tokens expire after 1 hour)
-        const intervalId = setInterval(refreshToken, 50 * 60 * 1000);
-
-        return () => clearInterval(intervalId);
-    }, [user]);
-    
     // Auth Handlers
     const handleSignIn = async () => {
-        if (!auth) return;
-        const provider = new GoogleAuthProvider();
         try {
-            await signInWithPopup(auth, provider);
+            signIn();
         } catch (error) {
             console.error("Error signing in:", error);
             setError("Failed to sign in. Please try again.");
@@ -91,9 +36,8 @@ const App: React.FC = () => {
     };
 
     const handleSignOut = async () => {
-        if (!auth) return;
         try {
-            await signOut(auth);
+            signOut();
             // Reset app state on sign out for a clean slate
             setScript('');
             setDialogues([]);
@@ -212,23 +156,7 @@ const App: React.FC = () => {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
     }, [dialogues]);
-    
-    if (!isFirebaseConfigured) {
-        return (
-            <div className="min-h-screen bg-slate-900 text-slate-200 flex items-center justify-center p-4">
-                <div className="bg-red-900/50 border border-red-700 text-red-300 px-6 py-4 rounded-lg max-w-lg text-center shadow-lg">
-                    <h2 className="text-xl font-bold mb-2">Firebase Not Configured</h2>
-                    <p>Authentication is disabled because Firebase credentials are missing. Please follow these steps:</p>
-                    <ol className="list-decimal list-inside text-left mt-4 space-y-2">
-                        <li>Create a <code className="bg-slate-700 p-1 rounded font-mono">.env</code> file in the root of your project.</li>
-                        <li>Add your Firebase project configuration to the <code className="bg-slate-700 p-1 rounded font-mono">.env</code> file. You can copy the format from <code className="bg-slate-700 p-1 rounded font-mono">.env.example</code>.</li>
-                        <li>Restart your development server.</li>
-                    </ol>
-                </div>
-            </div>
-        );
-    }
-    
+
     return (
         <div className="min-h-screen bg-slate-900 text-slate-200 font-sans p-4 sm:p-6 lg:p-8">
             <main className="max-w-4xl mx-auto">

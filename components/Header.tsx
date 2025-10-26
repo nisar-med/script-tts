@@ -1,5 +1,10 @@
 import React from 'react';
-import type { User } from 'firebase/auth';
+
+interface User {
+    email: string;
+    name: string;
+    picture: string;
+}
 
 interface HeaderProps {
     user: User | null;
@@ -20,7 +25,7 @@ export const Header: React.FC<HeaderProps> = ({ user, onSignOut }) => {
                     {user && (
                         <div className="flex items-center gap-4">
                              <div className="text-right hidden sm:block">
-                                <p className="text-sm font-medium text-slate-200 truncate">{user.displayName}</p>
+                                <p className="text-sm font-medium text-slate-200 truncate">{user.name}</p>
                                 <p className="text-xs text-slate-400 truncate">{user.email}</p>
                             </div>
                             <button
