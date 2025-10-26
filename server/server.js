@@ -256,7 +256,7 @@ app.use('/api-proxy', async (req, res, next) => {
         // Copy most headers from the incoming request
         for (const header in req.headers) {
             // Exclude host-specific headers and others that might cause issues upstream
-            if (!['host', 'connection', 'content-length', 'transfer-encoding', 'upgrade', 'sec-websocket-key', 'sec-websocket-version', 'sec-websocket-extensions'].includes(header.toLowerCase())) {
+            if (!['authorization', 'host', 'connection', 'content-length', 'transfer-encoding', 'upgrade', 'sec-websocket-key', 'sec-websocket-version', 'sec-websocket-extensions'].includes(header.toLowerCase())) {
                 outgoingHeaders[header] = req.headers[header];
             }
         }
