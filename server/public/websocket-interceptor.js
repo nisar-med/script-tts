@@ -7,6 +7,11 @@
     return;
   }
 
+  // Get auth token from global storage (set by App)
+  function getAuthToken() {
+    return window.__firebaseAuthToken__ || null;
+  }
+
   const handler = {
     construct(target, args) {
       let [url, protocols] = args;
@@ -26,7 +31,19 @@
               //use wss if https, else ws
               const proxyScheme = window.location.protocol === 'https:' ? 'wss' : 'ws';
               const proxyHost = window.location.host;
-              newUrlString = `${proxyScheme}://${proxyHost}/api-proxy${parsedUrl.pathname}${parsedUrl.search}`;
+
+              // Get auth token and add to query params
+              const authToken = getAuthToken();
+              const searchParams = new URLSearchParams(parsedUrl.search);
+              if (authToken) {
+                searchParams.set('token', authToken);
+                console.log('[WebSocketInterceptor-Proxy] Added auth token to WebSocket URL');
+              } else {
+                console.warn('[WebSocketInterceptor-Proxy] No auth token available for WebSocket connection');
+              }
+
+              const queryString = searchParams.toString();
+              newUrlString = `${proxyScheme}://${proxyHost}/api-proxy${parsedUrl.pathname}${queryString ? '?' + queryString : ''}`;
             }
           }
         } catch (e) {

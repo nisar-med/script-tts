@@ -8,6 +8,21 @@
 // Define the target URL that we want to intercept and proxy.
 const TARGET_URL_PREFIX = 'https://generativelanguage.googleapis.com';
 
+// Store the current Firebase auth token
+let authToken = null;
+
+// Listen for messages from the main thread (to receive auth token)
+self.addEventListener('message', (event) => {
+  try {
+    if (event.data && event.data.type === 'SET_AUTH_TOKEN') {
+      authToken = event.data.token;
+      console.log('Service Worker: Auth token updated', authToken ? 'Token received' : 'Token cleared');
+    }
+  } catch (error) {
+    console.error('Service Worker: Error handling message event:', error);
+  }
+});
+
 // Installation event:
 self.addEventListener('install', (event) => {
   try {
@@ -59,6 +74,14 @@ self.addEventListener('fetch', (event) => {
         if (event.request.headers.has(headerName)) {
           newHeaders.set(headerName, event.request.headers.get(headerName));
         }
+      }
+
+      // Inject Firebase auth token if available
+      if (authToken) {
+        newHeaders.set('Authorization', `Bearer ${authToken}`);
+        console.log('Service Worker: Injected Authorization header');
+      } else {
+        console.warn('Service Worker: No auth token available to inject');
       }
 
       if (event.request.method === 'POST') {

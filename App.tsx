@@ -12,6 +12,7 @@ import { ScriptInput } from './components/ScriptInput';
 import { DialoguePreview } from './components/DialoguePreview';
 import { AudioPlayer } from './components/AudioPlayer';
 import { LoadingSpinner } from './components/icons';
+import { setAuthToken } from './utils/tokenManager';
 
 const App: React.FC = () => {
     // Auth State
@@ -34,12 +35,48 @@ const App: React.FC = () => {
             setAuthLoading(false);
             return;
         };
-        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+        const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
             setUser(currentUser);
+
+            // Get and set the Firebase ID token for API authentication
+            if (currentUser) {
+                try {
+                    const idToken = await currentUser.getIdToken();
+                    await setAuthToken(idToken);
+                    console.log('[App] Firebase ID token set for API authentication');
+                } catch (error) {
+                    console.error('[App] Error getting Firebase ID token:', error);
+                }
+            } else {
+                // User signed out, clear the token
+                await setAuthToken(null);
+                console.log('[App] Cleared Firebase ID token');
+            }
+
             setAuthLoading(false);
         });
         return () => unsubscribe();
     }, []);
+
+    // Refresh Firebase ID token periodically (every 50 minutes)
+    useEffect(() => {
+        if (!user) return;
+
+        const refreshToken = async () => {
+            try {
+                const idToken = await user.getIdToken(true); // Force refresh
+                await setAuthToken(idToken);
+                console.log('[App] Firebase ID token refreshed');
+            } catch (error) {
+                console.error('[App] Error refreshing Firebase ID token:', error);
+            }
+        };
+
+        // Refresh every 50 minutes (tokens expire after 1 hour)
+        const intervalId = setInterval(refreshToken, 50 * 60 * 1000);
+
+        return () => clearInterval(intervalId);
+    }, [user]);
     
     // Auth Handlers
     const handleSignIn = async () => {

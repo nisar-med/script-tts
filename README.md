@@ -23,25 +23,31 @@ This nodejs proxy server lets you run your AI Studio Gemini application unmodifi
 
 ## Local Development
 
-For local development, the server needs to run over HTTPS to support the service worker. This requires a self-signed SSL certificate.
+The server runs on HTTP at `localhost:3000`. Service workers work on localhost over HTTP without requiring HTTPS (browsers have a special exception for localhost development).
 
-1.  **Generate SSL Certificates:**
-    Navigate to the `server` directory and run the following command to generate a `key.pem` and `cert.pem` file:
-
-    ```bash
-    openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -sha256 -days 365 -nodes -subj "/C=US/ST=CA/L=Mountain View/O=Google/OU=Test/CN=localhost"
-    ```
-
-2.  **Install Dependencies:**
+1.  **Install Dependencies:**
     In the `server` directory, run:
     ```bash
     npm install
+    ```
+
+2.  **Set up Environment:**
+    Create a `.env` file in the `server` directory with your Gemini API key:
+    ```bash
+    GEMINI_API_KEY=your-api-key-here
     ```
 
 3.  **Run the Server:**
     ```bash
     npm run dev
     ```
-    The server will be available at `https://localhost:3000`. You will need to accept the self-signed certificate in your browser.
+    The server will be available at `http://localhost:3000`.
 
-These certificate files are included in the `server/.gitignore` and will not be checked into source control. The server is configured to fall back to HTTP if these files are not present, which is the expected behavior for the Google Cloud Run environment.
+4.  **Set up Firebase:**
+    Create a `.env` file in the root directory with your Firebase configuration:
+    ```
+    VITE_FIREBASE_API_KEY=your-firebase-api-key
+    VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+    ```
+
+The service worker will automatically intercept Gemini API requests and proxy them through the local server, keeping your API key secure. In production (Cloud Run), HTTPS is automatically provided by the platform.
