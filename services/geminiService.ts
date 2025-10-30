@@ -97,19 +97,29 @@ function escapeXml(text: string): string {
 }
 
 
-async function generateSingleSpeakerAudio(dialogue: string, deliveryNote: string, voice: string): Promise<string | null> {
-    const textToSpeak = dialogue.trim();
-    // Don't call the API for empty, whitespace-only, or punctuation-only lines
-    if (!textToSpeak || /^[ \t\r\n.…]+$/.test(textToSpeak)) {
-        console.log(`Skipping empty or non-dialogue line: "${dialogue.substring(0, 50)}..."`);
+async function generateSingleSpeakerAudio(dialogues: string[], deliveryNotes: string[], voice: string): Promise<string | null> {
+    // Filter out empty lines
+    const validIndices = dialogues
+        .map((dialogue, index) => ({ dialogue: dialogue.trim(), index }))
+        .filter(({ dialogue }) => dialogue && !/^[ \t\r\n.…]+$/.test(dialogue))
+        .map(({ index }) => index);
+
+    if (validIndices.length === 0) {
+        console.log('Skipping batch: all lines are empty or non-dialogue');
         return null;
     }
-    
+
     try {
-        const descriptiveNote = deliveryNote.replace(/<[^>]+>/g, '').trim();
-        const level = getEmphasisLevel(descriptiveNote);
-        const additionalSsml = extractSsmlFromNote(deliveryNote);
-        const ssml = `<speak><emphasis level="${level}">${additionalSsml} ${escapeXml(textToSpeak)}</emphasis></speak>`;
+        // Build combined SSML for all lines in the batch
+        const ssmlLines = validIndices.map(i => {
+            const textToSpeak = dialogues[i].trim();
+            const descriptiveNote = deliveryNotes[i].replace(/<[^>]+>/g, '').trim();
+            const level = getEmphasisLevel(descriptiveNote);
+            const additionalSsml = extractSsmlFromNote(deliveryNotes[i]);
+            return `<emphasis level="${level}">${additionalSsml} ${escapeXml(textToSpeak)}</emphasis>`;
+        }).join(' ');
+
+        const ssml = `<speak>${ssmlLines}</speak>`;
 
         const requestPayload = {
             model: "gemini-2.5-flash-preview-tts",
@@ -124,17 +134,17 @@ async function generateSingleSpeakerAudio(dialogue: string, deliveryNote: string
             },
         };
 
-        console.debug("TTS API Request (Single Speaker):", JSON.stringify(requestPayload, null, 2));
+        console.debug(`TTS API Request (Batched ${validIndices.length} lines):`, JSON.stringify(requestPayload, null, 2));
 
         const response = await ai.models.generateContent(requestPayload);
         const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
         if (!base64Audio) {
-            console.warn(`No audio data received from the API for dialogue: "${dialogue.substring(0, 50)}..."`);
+            console.warn(`No audio data received from the API for batched request`);
             return null;
         }
         return base64Audio;
     } catch(e) {
-        console.error(`Error during API call for dialogue: "${dialogue.substring(0, 50)}..."`, e);
+        console.error(`Error during API call for batched request`, e);
         return null;
     }
 }
@@ -150,56 +160,43 @@ export async function generateDialogueAudio(dialogues: DialogueLine[], character
         if (characterCount === 0) {
             return "";
         }
-        
-        if (characterCount === 2) {
-            const multiSpeakerPrompt = dialogues.map(d => {
-                const descriptiveNote = d.deliveryNote.replace(/<[^>]+>/g, '').trim();
-                const level = getEmphasisLevel(descriptiveNote);
-                const additionalSsml = extractSsmlFromNote(d.deliveryNote);
-                const ssmlLine = `<emphasis level="${level}">${additionalSsml} ${escapeXml(d.dialogue)}</emphasis>`;
-                return `${d.character}: ${ssmlLine}`;
-            }).join('\n');
 
-            const speakerVoiceConfigs = uniqueCharacters.map(char => ({
-                speaker: char.name,
-                voiceConfig: {
-                    prebuiltVoiceConfig: { voiceName: char.voice }
-                }
-            }));
-
-            const requestPayload = {
-                model: "gemini-2.5-flash-preview-tts",
-                contents: [{ parts: [{ text: multiSpeakerPrompt }] }],
-                config: {
-                    responseModalities: [Modality.AUDIO],
-                    speechConfig: {
-                        multiSpeakerVoiceConfig: {
-                            speakerVoiceConfigs: speakerVoiceConfigs
-                        }
-                    }
-                }
-            };
-            
-            console.debug("TTS API Request (Multi-Speaker):", JSON.stringify(requestPayload, null, 2));
-
-            const response = await ai.models.generateContent(requestPayload);
-
-            const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-            if (!base64Audio) {
-                throw new Error("No audio data received from the API for multi-speaker generation. The script might contain unsupported content.");
-            }
-            return base64Audio;
-        }
-
-        // Handles 1 or >2 characters
+        // Batch consecutive lines by the same character to reduce API calls
         const pcmChunks: Uint8Array[] = [];
+        const batches: { character: Character; dialogues: string[]; deliveryNotes: string[] }[] = [];
+
+        // Group consecutive lines by character
         for (const line of dialogues) {
             const character = characters.find(c => c.name === line.character);
             if (!character) {
                 console.warn(`Could not find voice for character: ${line.character}. Skipping line.`);
                 continue;
             }
-            const base64Audio = await generateSingleSpeakerAudio(line.dialogue, line.deliveryNote, character.voice);
+
+            const lastBatch = batches[batches.length - 1];
+            if (lastBatch && lastBatch.character.name === character.name) {
+                // Add to existing batch
+                lastBatch.dialogues.push(line.dialogue);
+                lastBatch.deliveryNotes.push(line.deliveryNote);
+            } else {
+                // Start new batch
+                batches.push({
+                    character,
+                    dialogues: [line.dialogue],
+                    deliveryNotes: [line.deliveryNote]
+                });
+            }
+        }
+
+        console.log(`Processing ${dialogues.length} lines in ${batches.length} batched requests`);
+
+        // Generate audio for each batch
+        for (const batch of batches) {
+            const base64Audio = await generateSingleSpeakerAudio(
+                batch.dialogues,
+                batch.deliveryNotes,
+                batch.character.voice
+            );
             if (base64Audio) {
                 pcmChunks.push(decode(base64Audio));
             }
