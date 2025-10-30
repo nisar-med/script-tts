@@ -1,0 +1,19 @@
+{
+  "name": "script-tts-agent",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "CLI agent for generating audio from script dialogues using Gemini TTS",
+  "scripts": {
+    "generate": "tsx generate-audio.ts"
+  },
+  "dependencies": {
+    "@google/genai": "^1.26.0",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "tsx": "^4.19.2",
+    "typescript": "~5.8.2"
+  }
+}
