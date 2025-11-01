@@ -4,51 +4,49 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-A text-to-speech application that converts movie/theatre scripts into multi-character audio using Google's Gemini AI. The app extracts dialogue from scripts, detects character genders, and generates natural-sounding audio with different voices for each character.
+A text-to-speech application that converts movie/theatre scripts into multi-character audio using Google's Gemini AI. Users authenticate via Google OAuth, the app extracts dialogue from scripts, detects character genders, and generates natural-sounding audio with different voices for each character.
 
 ## Architecture
 
 ### Frontend (React + Vite + TypeScript)
 - **App.tsx**: Main orchestrator managing auth state, dialogue extraction workflow, and audio generation
 - **services/geminiService.ts**: Core integration with Gemini API for dialogue extraction and TTS generation
-  - Uses custom fetch to inject Firebase auth tokens
+  - Configures SDK to use `/api-proxy` in production via `httpOptions.baseUrl`
   - Handles both content extraction (gemini-2.5-flash) and audio synthesis (gemini-2.0-flash-exp)
-- **firebase/config.ts**: Firebase authentication configuration
+- **contexts/AuthContext.tsx**: Google OAuth authentication using @react-oauth/google
 - **components/**: UI components for script input, dialogue preview, audio playback, and auth
 
 ### Backend (Express.js)
 - **server/server.js**: Proxy server that secures Gemini API calls
-  - Verifies Firebase ID tokens for all `/api-proxy` requests
+  - Verifies Google ID tokens for all `/api-proxy` requests
   - Rate limits requests (100 per 15 minutes per IP)
   - Proxies both HTTP and WebSocket connections to Gemini API
   - Injects GEMINI_API_KEY server-side to keep it secure
 
-### Service Worker Architecture (API Key Hiding)
+### API Proxy Architecture (API Key Security)
 
-**Critical security mechanism**: The Gemini API key is completely hidden from browser network inspection.
+**Critical security mechanism**: The Gemini API key is completely hidden from the client in production.
 
 **How it works:**
-1. **Injection**: When serving `index.html`, `server/server.js` dynamically injects a service worker registration script into the `<head>` tag (only if API key is present)
-2. **Registration**: On page load, the injected script registers `./service-worker.js` with the browser
-3. **Interception**: The service worker (`server/public/service-worker.js`) intercepts ALL fetch requests to `https://generativelanguage.googleapis.com/*`
-4. **Rewriting**: Intercepted requests are rewritten to point to local `/api-proxy/*` endpoint instead
-5. **Proxying**: Express server receives the request at `/api-proxy`, validates Firebase auth token, injects GEMINI_API_KEY, and forwards to real Gemini API
-6. **Response**: API response flows back through proxy → service worker → frontend
+1. **Development mode** (`npm run dev`): SDK uses `VITE_GEMINI_API_KEY` directly to call Gemini API (no proxy, no auth required)
+2. **Production mode**: SDK configured with `httpOptions.baseUrl` pointing to `/api-proxy` endpoint and includes Google ID token in `Authorization` header
+3. **Authentication**: User's Google ID token is retrieved from `tokenManager` and included in every request
+4. **Proxying**: Express server receives requests at `/api-proxy`, validates Google ID token, injects GEMINI_API_KEY, and forwards to real Gemini API
+5. **Response**: API response flows back through proxy → frontend
 
-**Result**: Browser DevTools Network tab shows only requests to `/api-proxy` (local server). The actual Gemini API calls with API key happen server-side and are never visible to the client.
+**Result**: In production, browser DevTools Network tab shows only requests to `/api-proxy` (local server). The actual Gemini API calls with API key happen server-side and are never visible to the client.
 
 **Key files:**
-- `server/server.js:214-230`: Service worker registration script (injected into HTML)
-- `server/server.js:273-275`: Route serving the service worker file
-- `server/public/service-worker.js`: Service worker that intercepts and rewrites requests
+- `services/geminiService.ts`: Configures SDK to use `/api-proxy` in production and attaches auth token to requests
+- `utils/tokenManager.ts`: Manages Google ID token storage and retrieval
+- `server/server.js`: Express proxy that validates Google ID tokens and injects API key
 
 ### Key Data Flow
-1. User pastes script → Frontend code calls Gemini API at `generativelanguage.googleapis.com`
-2. Service worker intercepts request → Rewrites to `/api-proxy` endpoint
-3. Server validates Firebase token → Proxies request to Gemini with API key
-4. Gemini returns structured dialogue with character names, genders, delivery notes
-5. User assigns voices → Frontend generates audio via Gemini Multimodal Live API (also intercepted and proxied)
-6. Audio chunks concatenated into single WAV file for playback/download
+1. User pastes script → Frontend SDK calls Gemini API (direct in dev, via `/api-proxy` in production)
+2. Server validates Google ID token → Proxies request to Gemini with API key (production only)
+3. Gemini returns structured dialogue with character names, genders, delivery notes
+4. User assigns voices → Frontend generates audio via Gemini Multimodal Live API (also proxied in production)
+5. Audio chunks concatenated into single WAV file for playback/download
 
 ## Development Commands
 
@@ -67,46 +65,61 @@ npm run dev          # Start server with nodemon (hot reload)
 npm start            # Start production server
 ```
 
-### Service Worker Support
-The server runs on HTTP at `localhost:3000`. Service workers work on localhost over HTTP without requiring HTTPS (browsers have a special exception for localhost development). In production (Cloud Run), HTTPS is automatically provided by the platform.
+### Development vs Production
+- **Development**: Frontend calls Gemini API directly using `VITE_GEMINI_API_KEY` environment variable
+- **Production**: All Gemini API calls are routed through `/api-proxy` server endpoint (API key never sent to client)
 
 ## Deployment (Google Cloud Run)
 
-### One-Time Setup
-1. Create Gemini API key secret:
+### Using Cloud Build
+
+Deploy with substitution variables:
 ```bash
-echo -n "${GEMINI_API_KEY}" | gcloud secrets create gemini_api_key --data-file=-
+gcloud builds submit --config=cloudbuild.yaml \
+  --substitutions=_GEMINI_API_KEY="your-key",_VITE_GOOGLE_CLIENT_ID="your-client-id"
 ```
 
-### Deploy
-```bash
-gcloud run deploy my-app --source=. --update-secrets=GEMINI_API_KEY=gemini_api_key:latest
-```
+### CI/CD Pipeline
+- **cloudbuild.yaml**: Automated build and deployment
+- **Dockerfile**: Multi-stage build (builder + runtime)
+- **Build args**: `VITE_GOOGLE_CLIENT_ID` injected during Docker build
+- **Runtime env vars**: `GEMINI_API_KEY` and `GOOGLE_CLOUD_PROJECT_ID` set on Cloud Run service
 
-### CI/CD (Cloud Build)
-- **cloudbuild.yaml**: Automated build and deployment pipeline
-- Requires substitution variables for Firebase config and Gemini API key
-- Multi-stage Docker build (see Dockerfile)
+### Required Substitution Variables
+- `_GEMINI_API_KEY`: Gemini API key for server
+- `_VITE_GOOGLE_CLIENT_ID`: Google OAuth client ID for frontend
 
 ## Environment Variables
 
-### Frontend (.env in root)
+### Frontend
+
+The project uses environment-specific `.env` files:
+
+**`.env.development`** (used by `npm run dev`):
 ```
-VITE_FIREBASE_API_KEY=your-firebase-api-key
-VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+VITE_GEMINI_API_KEY=your-gemini-api-key-here
+VITE_GOOGLE_CLIENT_ID=your-google-oauth-client-id
+# VITE_API_BASE_URL not set - SDK calls Gemini API directly
+```
+
+**`.env.production`** (used by `npm run build`):
+```
+VITE_API_BASE_URL=/api-proxy
+VITE_GOOGLE_CLIENT_ID=your-google-oauth-client-id
+# VITE_GEMINI_API_KEY not needed - server handles it
 ```
 
 ### Backend (server/.env)
 ```
 GEMINI_API_KEY=your-gemini-api-key
-FIREBASE_PROJECT_ID=your-firebase-project-id  # required for token validation
+GOOGLE_CLIENT_ID=your-google-oauth-client-id  # required for Google ID token validation
 PORT=3000  # optional, defaults to 3000
 ```
 
 ### Production (Cloud Run)
-- `API_KEY` or `GEMINI_API_KEY`: Gemini API key (injected via secrets)
-- `FIREBASE_PROJECT_ID` or `VITE_FIREBASE_PROJECT_ID`: Firebase project ID for token validation
-- `VITE_FIREBASE_*`: Set via Cloud Build substitutions during Docker build
+- `GEMINI_API_KEY`: Gemini API key
+- `GOOGLE_CLIENT_ID`: Google OAuth client ID for ID token validation
+- `VITE_GOOGLE_CLIENT_ID`: Set via Cloud Build substitutions during Docker build (frontend only)
 
 ## Key Technical Details
 
@@ -123,27 +136,26 @@ PORT=3000  # optional, defaults to 3000
 - Output format: 24kHz, 16-bit, mono PCM wrapped in WAV
 
 ### Security Model
-- **Service worker interception**: Frontend code calls Gemini API directly, but service worker intercepts and redirects to local proxy
+- **Environment-based routing**: SDK configured to use `/api-proxy` in production via `httpOptions.baseUrl`
 - **Server-side proxying**: All Gemini API calls proxied through Express server with API key injected server-side
-- **Firebase authentication**: Required for all `/api-proxy` requests
+- **Google OAuth authentication**: Required for all `/api-proxy` requests
 - **API key never exposed**: Browser network tab shows only `/api-proxy` requests, never actual Gemini API calls
 - **Rate limiting**: 100 requests per 15 minutes per IP address
-- **Token verification**: Firebase ID tokens verified using public keys (no service account needed)
+- **Token verification**: Google ID tokens verified using OIDC public keys (no service account needed)
 
 ## Important Files
 
 - **types.ts**: TypeScript interfaces for DialogueLine, Character, ExtractedData
 - **constants.ts**: Voice names and supported languages configuration
 - **utils/audioUtils.ts**: PCM/WAV encoding, base64 decoding, audio concatenation
-- **server/public/service-worker.js**: Service worker that intercepts Gemini API requests and rewrites to /api-proxy
-- **server/server.js**: Express server with JWT-based Firebase token validation (no service account required)
+- **services/geminiService.ts**: Gemini SDK configuration with conditional proxy routing based on environment
+- **server/server.js**: Express server with JWT-based Google ID token validation (no service account required)
 
 ## Testing Notes
 
-The app requires valid Firebase and Gemini credentials to function. For testing:
+The app requires valid Google OAuth and Gemini credentials to function. For testing:
 1. Ensure both frontend and backend .env files are configured
-2. Firebase authentication must be enabled in your Firebase project
-3. Server must be running on `http://localhost:3000` to proxy Gemini API calls
-4. Verify service worker registration in browser DevTools → Application → Service Workers
-5. Check Network tab - should only see `/api-proxy/*` requests, never `generativelanguage.googleapis.com`
-6. Service workers work on localhost over HTTP (no HTTPS needed for local development)
+2. Google OAuth client ID must be created in Google Cloud Console
+3. **Development mode**: Server doesn't need to run - frontend calls Gemini API directly
+4. **Production mode**: Server must be running on `http://localhost:3000` to proxy Gemini API calls
+5. Check Network tab in production - should only see `/api-proxy/*` requests, never `generativelanguage.googleapis.com`

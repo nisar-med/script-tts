@@ -5,7 +5,7 @@ steps:
   args:
   - 'build'
   - '--build-arg'
-  - 'GOOGLE_CLIENT_ID=${_GOOGLE_CLIENT_ID}'
+  - 'VITE_GOOGLE_CLIENT_ID=${_VITE_GOOGLE_CLIENT_ID}'
   - '-t'
   - '${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE_NAME}:$COMMIT_SHA'
   - '.'
@@ -29,8 +29,8 @@ steps:
   - '--region=${_LOCATION}'
   - '--platform=managed'
   - '--allow-unauthenticated'
-  # Set run-time environment variables from the same substitution variables
-  - '--set-env-vars=API_KEY=${_GEMINI_API_KEY},GEMINI_API_KEY=${_GEMINI_API_KEY},GOOGLE_CLIENT_ID=${_GOOGLE_CLIENT_ID},GOOGLE_CLIENT_SECRET=${_GOOGLE_CLIENT_SECRET}'
+  # Set run-time environment variables
+  - '--set-env-vars=GEMINI_API_KEY=${_GEMINI_API_KEY},GOOGLE_CLIENT_ID=${_VITE_GOOGLE_CLIENT_ID}'
 
 # Specify the logging option to resolve the service account permission issue
 options:
@@ -42,5 +42,4 @@ substitutions:
   _REPOSITORY: 'script-tts-repo'
   _LOCATION: 'us-west1'
   _GEMINI_API_KEY: ''
-  _GOOGLE_CLIENT_ID: ''
-  _GOOGLE_CLIENT_SECRET: ''
+  _VITE_GOOGLE_CLIENT_ID: ''

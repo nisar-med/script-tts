@@ -7,7 +7,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { setAuthToken } from '../utils/tokenManager';
 
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID as string;
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string;
 const REDIRECT_URI = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
 
 interface User {
@@ -142,7 +142,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     if (!GOOGLE_CLIENT_ID) {
-        console.error('[Auth] VITE_GOOGLE_CLIENT_ID not set in environment variables');
+        console.error('[Auth] GOOGLE_CLIENT_ID not set in environment variables');
         return <div>Google Client ID not configured</div>;
     }
 

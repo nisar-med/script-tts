@@ -1,53 +1,109 @@
-# AI Studio Gemini App Proxy Server
+# Script to Multilingual Audio
 
-This nodejs proxy server lets you run your AI Studio Gemini application unmodified, without exposing your API key in the frontend code.
+A text-to-speech application that converts movie/theatre scripts into multi-character audio using Google's Gemini AI.
 
+## Quick Start
 
-## Instructions
+### 1. Install Dependencies
 
-**Prerequisites**:
-- [Google Cloud SDK / gcloud CLI](https://cloud.google.com/sdk/docs/install)
-- (Optional) Gemini API Key
+```bash
+# Frontend dependencies
+npm install
 
-1. Download or copy the files of your AI Studio app into this directory at the root level.
-2. If your app calls the Gemini API, create a Secret for your API key:
-     ```
-     echo -n "${GEMINI_API_KEY}" | gcloud secrets create gemini_api_key --data-file=-
-     ```
+# Backend dependencies
+cd server
+npm install
+cd ..
+```
 
-3.  Deploy to Cloud Run (optionally including API key):
-    ```
-    gcloud run deploy my-app --source=. --update-secrets=GEMINI_API_KEY=gemini_api_key:latest
-    ```
+### 2. Configure Environment Variables
 
+Use `.env.example` as a template to create environment-specific files:
 
-## Local Development
+**Frontend Development** (`.env.development`):
+```bash
+cp .env.example .env.development
+# Edit and set your actual values:
+# VITE_GEMINI_API_KEY=your-gemini-api-key
+# VITE_GOOGLE_CLIENT_ID=your-google-oauth-client-id
+```
 
-The server runs on HTTP at `localhost:3000`. Service workers work on localhost over HTTP without requiring HTTPS (browsers have a special exception for localhost development).
+**Frontend Production** (`.env.production`):
+```bash
+cp .env.example .env.production
+# Edit and set your actual values:
+# VITE_API_BASE_URL=/api-proxy
+# VITE_GOOGLE_CLIENT_ID=your-google-oauth-client-id
+```
 
-1.  **Install Dependencies:**
-    In the `server` directory, run:
-    ```bash
-    npm install
-    ```
+**Backend** (`server/.env`):
+```bash
+# Create server/.env with:
+# GEMINI_API_KEY=your-gemini-api-key
+# GOOGLE_CLIENT_ID=your-google-oauth-client-id
+# PORT=3000
+```
 
-2.  **Set up Environment:**
-    Create a `.env` file in the `server` directory with your Gemini API key:
-    ```bash
-    GEMINI_API_KEY=your-api-key-here
-    ```
+### 3. Development Mode
 
-3.  **Run the Server:**
-    ```bash
-    npm run dev
-    ```
-    The server will be available at `http://localhost:3000`.
+```bash
+# Run frontend only (calls Gemini API directly)
+npm run dev
+```
 
-4.  **Set up Firebase:**
-    Create a `.env` file in the root directory with your Firebase configuration:
-    ```
-    VITE_FIREBASE_API_KEY=your-firebase-api-key
-    VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
-    ```
+Visit `http://localhost:5173`
 
-The service worker will automatically intercept Gemini API requests and proxy them through the local server, keeping your API key secure. In production (Cloud Run), HTTPS is automatically provided by the platform.
+### 4. Production Mode
+
+```bash
+# Build frontend
+npm run build
+
+# Start server (from server directory)
+cd server
+npm start
+```
+
+Visit `http://localhost:3000`
+
+## How It Works
+
+### Development vs Production
+
+- **Development**: Frontend calls Gemini API directly using your API key from `.env.development`
+- **Production**: All API calls are routed through `/api-proxy` server endpoint (API key stays server-side)
+
+### Architecture
+
+1. User authenticates with Google OAuth
+2. User pastes a script → Gemini extracts dialogue, detects character genders
+3. User assigns voices to characters
+4. Gemini generates audio with different voices per character
+5. Audio is concatenated and available for playback/download
+
+## Features
+
+- Multi-character dialogue extraction with gender detection
+- Voice assignment (5 prebuilt voices: Puck, Charon, Fenrir, Kore, Zephyr)
+- Delivery note detection for expressive speech
+- Batch processing for consecutive lines by the same character
+- WAV audio output
+
+## Deployment to Google Cloud Run
+
+Deploy using Cloud Build with substitution variables:
+
+```bash
+gcloud builds submit --config=cloudbuild.yaml \
+  --substitutions=_GEMINI_API_KEY="your-gemini-key",_VITE_GOOGLE_CLIENT_ID="your-client-id"
+```
+
+Or set up a Cloud Build trigger with these substitution variables:
+- `_GEMINI_API_KEY`: Your Gemini API key
+- `_VITE_GOOGLE_CLIENT_ID`: Your Google OAuth client ID
+
+## Documentation
+
+- [CLAUDE.md](CLAUDE.md) - Complete technical documentation for development
+- [types.ts](types.ts) - TypeScript interfaces
+- [constants.ts](constants.ts) - Voice and language configurations

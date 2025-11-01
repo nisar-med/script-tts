@@ -1,11 +1,31 @@
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import type { DialogueLine, Character, ExtractedData } from '../types';
 import { decode, encode, concatenatePcmData } from "../utils/audioUtils";
+import { getAuthToken } from '../utils/tokenManager';
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Configuration based on environment
+const useProxy = import.meta.env.VITE_API_BASE_URL;
+const apiBaseUrl = useProxy ? `${window.location.origin}${import.meta.env.VITE_API_BASE_URL}` : undefined;
+
+// Function to get SDK instance with current auth token
+function getGeminiClient() {
+  const token = getAuthToken();
+
+  return new GoogleGenAI({
+    apiKey: import.meta.env.VITE_GEMINI_API_KEY || 'placeholder',
+    httpOptions: apiBaseUrl ? {
+      baseUrl: apiBaseUrl,
+      headers: token ? {
+        'Authorization': `Bearer ${token}`
+      } : undefined
+    } : undefined
+  });
+}
 
 export async function extractDialogueFromScript(script: string): Promise<ExtractedData> {
   try {
+    // Get fresh client instance with current auth token
+    const ai = getGeminiClient();
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: `Analyze the following script. Perform four tasks:
@@ -136,6 +156,8 @@ async function generateSingleSpeakerAudio(dialogues: string[], deliveryNotes: st
 
         console.debug(`TTS API Request (Batched ${validIndices.length} lines):`, JSON.stringify(requestPayload, null, 2));
 
+        // Get fresh client instance with current auth token
+        const ai = getGeminiClient();
         const response = await ai.models.generateContent(requestPayload);
         const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
         if (!base64Audio) {

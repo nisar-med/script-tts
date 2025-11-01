@@ -4,16 +4,14 @@ FROM node:22 AS builder
 WORKDIR /app
 
 # Define build-time arguments for Vite
-ARG GOOGLE_CLIENT_ID
+ARG VITE_GOOGLE_CLIENT_ID
 
-# Set them as environment variables for the builder stage
-# Vite will use these during `npm run build`
-ENV GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID
+# Set environment variables for Vite build
+ENV VITE_API_BASE_URL=/api-proxy
+ENV VITE_GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID}
 
 # Copy all files from the current directory
 COPY . ./
-RUN echo "API_KEY=PLACEHOLDER" > ./.env
-RUN echo "GEMINI_API_KEY=PLACEHOLDER" >> ./.env
 
 # Install server dependencies
 WORKDIR /app/server

@@ -9,9 +9,11 @@ package-lock.json
 build
 .cache
 
-# Environment files
+# Environment files (Docker creates its own .env.production)
 .env
 .env.local
+.env.development
+.env.production
 .env.*.local
 
 # Git
@@ -36,7 +38,8 @@ coverage
 
 # Misc
 *.log
-README.md
 .prettierrc
 .eslintrc*
 tsconfig.tsbuildinfo
+TEST-PRODUCTION.md
+data/

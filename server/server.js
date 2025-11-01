@@ -22,7 +22,6 @@ const externalWsBaseUrl = 'wss://generativelanguage.googleapis.com';
 const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
 
 const staticPath = path.join(__dirname,'dist');
-const publicPath = path.join(__dirname,'public');
 
 const { verifyGoogleToken } = require('./auth/oidc');
 
@@ -31,7 +30,7 @@ if (!apiKey) {
     console.error("Warning: GEMINI_API_KEY or API_KEY environment variable is not set! Proxy functionality will be disabled.");
 }
 else {
-  console.log("API KEY FOUND (proxy will use this): " + apiKey)
+  console.log("API KEY FOUND (proxy will use this)")
 }
 
 // Limit body size to 50mb
@@ -216,73 +215,7 @@ app.use('/api-proxy', async (req, res, next) => {
     }
 });
 
-const webSocketInterceptorScriptTag = `<script src="/public/websocket-interceptor.js" defer></script>`;
-
-// Prepare service worker registration script content
-const serviceWorkerRegistrationScript = `
-<script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load' , () => {
-    navigator.serviceWorker.register('./service-worker.js')
-      .then(registration => {
-        console.log('Service Worker registered successfully with scope:', registration.scope);
-      })
-      .catch(error => {
-        console.error('Service Worker registration failed:', error);
-      });
-  });
-} else {
-  console.log('Service workers are not supported in this browser.');
-}
-</script>
-`;
-
-// Serve index.html or placeholder based on API key and file availability
-app.get('/', (req, res) => {
-    const placeholderPath = path.join(publicPath, 'placeholder.html');
-
-    // Try to serve index.html
-    console.log("LOG: Route '/' accessed. Attempting to serve index.html.");
-    const indexPath = path.join(staticPath, 'index.html');
-
-    fs.readFile(indexPath, 'utf8', (err, indexHtmlData) => {
-        if (err) {
-            // index.html not found or unreadable, serve the original placeholder
-            console.log('LOG: index.html not found or unreadable. Falling back to original placeholder.');
-            return res.sendFile(placeholderPath);
-        }
-
-        // If API key is not set, serve original HTML without injection
-        if (!apiKey) {
-          console.log("LOG: API key not set. Serving original index.html without script injections.");
-          return res.sendFile(indexPath);
-        }
-
-        // index.html found and apiKey set, inject scripts
-        console.log("LOG: index.html read successfully. Injecting scripts.");
-        let injectedHtml = indexHtmlData;
-
-
-        if (injectedHtml.includes('<head>')) {
-            // Inject WebSocket interceptor first, then service worker script
-            injectedHtml = injectedHtml.replace(
-                '<head>',
-                `<head>${webSocketInterceptorScriptTag}${serviceWorkerRegistrationScript}`
-            );
-            console.log("LOG: Scripts injected into <head>.");
-        } else {
-            console.warn("WARNING: <head> tag not found in index.html. Prepending scripts to the beginning of the file as a fallback.");
-            injectedHtml = `${webSocketInterceptorScriptTag}${serviceWorkerRegistrationScript}${indexHtmlData}`;
-        }
-        res.send(injectedHtml);
-    });
-});
-
-app.get('/service-worker.js', (req, res) => {
-   return res.sendFile(path.join(publicPath, 'service-worker.js'));
-});
-
-app.use('/public', express.static(publicPath));
+// Serve static files
 app.use(express.static(staticPath));
 
 // Start the server
