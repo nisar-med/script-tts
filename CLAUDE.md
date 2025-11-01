@@ -13,7 +13,8 @@ A text-to-speech application that converts movie/theatre scripts into multi-char
 - **services/geminiService.ts**: Core integration with Gemini API for dialogue extraction and TTS generation
   - Configures SDK to use `/api-proxy` in production via `httpOptions.baseUrl`
   - Handles both content extraction (gemini-2.5-flash) and audio synthesis (gemini-2.0-flash-exp)
-- **contexts/AuthContext.tsx**: Google OAuth authentication using @react-oauth/google
+- **contexts/AuthContext.tsx**: Google OAuth authentication using authorization code flow with refresh tokens
+- **utils/tokenManager.ts**: Manages Google ID token lifecycle with automatic refresh before expiry
 - **components/**: UI components for script input, dialogue preview, audio playback, and auth
 
 ### Backend (Express.js)
@@ -22,6 +23,9 @@ A text-to-speech application that converts movie/theatre scripts into multi-char
   - Rate limits requests (100 per 15 minutes per IP)
   - Proxies both HTTP and WebSocket connections to Gemini API
   - Injects GEMINI_API_KEY server-side to keep it secure
+  - Provides `/api/auth/token` endpoint to exchange authorization codes for tokens
+  - Provides `/api/auth/refresh` endpoint to refresh expired ID tokens
+- **server/auth/oidc.js**: Google OIDC token verification using public keys
 
 ### API Proxy Architecture (API Key Security)
 
@@ -38,8 +42,9 @@ A text-to-speech application that converts movie/theatre scripts into multi-char
 
 **Key files:**
 - `services/geminiService.ts`: Configures SDK to use `/api-proxy` in production and attaches auth token to requests
-- `utils/tokenManager.ts`: Manages Google ID token storage and retrieval
-- `server/server.js`: Express proxy that validates Google ID tokens and injects API key
+- `utils/tokenManager.ts`: Manages Google ID token storage, retrieval, and automatic refresh before expiry
+- `contexts/AuthContext.tsx`: Implements OAuth 2.0 authorization code flow with refresh token support
+- `server/server.js`: Express proxy that validates Google ID tokens, exchanges auth codes, and refreshes tokens
 
 ### Key Data Flow
 1. User pastes script → Frontend SDK calls Gemini API (direct in dev, via `/api-proxy` in production)
@@ -112,13 +117,17 @@ VITE_GOOGLE_CLIENT_ID=your-google-oauth-client-id
 ### Backend (server/.env)
 ```
 GEMINI_API_KEY=your-gemini-api-key
-GOOGLE_CLIENT_ID=your-google-oauth-client-id  # required for Google ID token validation
+GOOGLE_CLIENT_ID=your-google-oauth-client-id        # required for ID token validation
+GOOGLE_CLIENT_SECRET=your-google-oauth-client-secret # required for authorization code exchange and token refresh
 PORT=3000  # optional, defaults to 3000
 ```
+
+**Important**: Both `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` must be configured for the OAuth 2.0 authorization code flow with refresh tokens to work.
 
 ### Production (Cloud Run)
 - `GEMINI_API_KEY`: Gemini API key
 - `GOOGLE_CLIENT_ID`: Google OAuth client ID for ID token validation
+- `GOOGLE_CLIENT_SECRET`: Google OAuth client secret for token exchange and refresh
 - `VITE_GOOGLE_CLIENT_ID`: Set via Cloud Build substitutions during Docker build (frontend only)
 
 ## Key Technical Details
@@ -138,7 +147,13 @@ PORT=3000  # optional, defaults to 3000
 ### Security Model
 - **Environment-based routing**: SDK configured to use `/api-proxy` in production via `httpOptions.baseUrl`
 - **Server-side proxying**: All Gemini API calls proxied through Express server with API key injected server-side
-- **Google OAuth authentication**: Required for all `/api-proxy` requests
+- **Google OAuth authentication**: OAuth 2.0 authorization code flow with PKCE-like state validation
+- **Token refresh**: ID tokens automatically refreshed before expiry using refresh tokens (no user re-authentication needed)
+- **Token lifecycle**:
+  - Authorization code exchanged for ID token + refresh token server-side
+  - Refresh token stored in localStorage, never sent to client-side code
+  - ID tokens refreshed automatically 5 minutes before expiry (or when needed)
+  - Expired tokens trigger automatic refresh via `/api/auth/refresh` endpoint
 - **API key never exposed**: Browser network tab shows only `/api-proxy` requests, never actual Gemini API calls
 - **Rate limiting**: 100 requests per 15 minutes per IP address
 - **Token verification**: Google ID tokens verified using OIDC public keys (no service account needed)
@@ -148,14 +163,24 @@ PORT=3000  # optional, defaults to 3000
 - **types.ts**: TypeScript interfaces for DialogueLine, Character, ExtractedData
 - **constants.ts**: Voice names and supported languages configuration
 - **utils/audioUtils.ts**: PCM/WAV encoding, base64 decoding, audio concatenation
-- **services/geminiService.ts**: Gemini SDK configuration with conditional proxy routing based on environment
-- **server/server.js**: Express server with JWT-based Google ID token validation (no service account required)
+- **utils/tokenManager.ts**: Token refresh logic with automatic scheduling and expiry checking
+- **services/geminiService.ts**: Gemini SDK configuration with conditional proxy routing and automatic token refresh
+- **contexts/AuthContext.tsx**: OAuth 2.0 authorization code flow implementation with refresh token support
+- **server/server.js**: Express server with OAuth endpoints and JWT-based Google ID token validation
+- **server/auth/oidc.js**: Google OIDC token verification using public certificates
 
 ## Testing Notes
 
 The app requires valid Google OAuth and Gemini credentials to function. For testing:
 1. Ensure both frontend and backend .env files are configured
-2. Google OAuth client ID must be created in Google Cloud Console
-3. **Development mode**: Server doesn't need to run - frontend calls Gemini API directly
-4. **Production mode**: Server must be running on `http://localhost:3000` to proxy Gemini API calls
-5. Check Network tab in production - should only see `/api-proxy/*` requests, never `generativelanguage.googleapis.com`
+2. Google OAuth client must be created in Google Cloud Console:
+   - Add `http://localhost:3000` (or your redirect URI) to authorized redirect URIs
+   - Enable both client ID and client secret
+   - Configure OAuth consent screen
+3. **Development mode**: Server doesn't need to run - frontend calls Gemini API directly (but won't have OAuth)
+4. **Production mode**: Server must be running on `http://localhost:3000` to:
+   - Proxy Gemini API calls
+   - Exchange authorization codes for tokens
+   - Refresh expired tokens
+5. Check Network tab in production - should only see `/api-proxy/*` and `/api/auth/*` requests, never `generativelanguage.googleapis.com`
+6. **Token refresh**: Tokens are automatically refreshed 5 minutes before expiry (or on-demand if expired)

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import type { DialogueLine, Character } from './types';
-import { extractDialogueFromScript, generateDialogueAudio } from './services/geminiService';
+import { extractDialogueFromScript, generateDialogueAudio, AuthenticationError } from './services/geminiService';
 import { decode, createWavBlob } from './utils/audioUtils';
 import { MALE_VOICES, FEMALE_VOICES, SUPPORTED_LANGUAGES } from './constants';
 import { Header } from './components/Header';
@@ -99,11 +99,18 @@ const App: React.FC = () => {
             }
 
         } catch (e: unknown) {
-            setError(e instanceof Error ? e.message : 'An unknown error occurred.');
+            // Handle authentication errors by signing out the user
+            if (e instanceof AuthenticationError) {
+                setError(e.message);
+                // Sign out user and clear state
+                await signOut();
+            } else {
+                setError(e instanceof Error ? e.message : 'An unknown error occurred.');
+            }
         } finally {
             setIsLoadingExtraction(false);
         }
-    }, [script]);
+    }, [script, signOut]);
 
     const handleCharacterVoiceChange = (characterName: string, voice: string) => {
         setCharacters(prev =>
@@ -133,11 +140,18 @@ const App: React.FC = () => {
             const url = URL.createObjectURL(wavBlob);
             setAudioUrl(url);
         } catch (e: unknown) {
-            setError(e instanceof Error ? e.message : 'An unknown error occurred during audio generation.');
+            // Handle authentication errors by signing out the user
+            if (e instanceof AuthenticationError) {
+                setError(e.message);
+                // Sign out user and clear state
+                await signOut();
+            } else {
+                setError(e instanceof Error ? e.message : 'An unknown error occurred during audio generation.');
+            }
         } finally {
             setIsLoadingAudio(false);
         }
-    }, [dialogues, characters]);
+    }, [dialogues, characters, signOut]);
 
     const handleDownloadDialogue = useCallback(() => {
         if (dialogues.length === 0) return;

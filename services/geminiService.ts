@@ -3,13 +3,21 @@ import type { DialogueLine, Character, ExtractedData } from '../types';
 import { decode, encode, concatenatePcmData } from "../utils/audioUtils";
 import { getAuthToken } from '../utils/tokenManager';
 
+// Custom error class for authentication failures
+export class AuthenticationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'AuthenticationError';
+  }
+}
+
 // Configuration based on environment
 const useProxy = import.meta.env.VITE_API_BASE_URL;
 const apiBaseUrl = useProxy ? `${window.location.origin}${import.meta.env.VITE_API_BASE_URL}` : undefined;
 
 // Function to get SDK instance with current auth token
-function getGeminiClient() {
-  const token = getAuthToken();
+async function getGeminiClient() {
+  const token = await getAuthToken();
 
   return new GoogleGenAI({
     apiKey: import.meta.env.VITE_GEMINI_API_KEY || 'placeholder',
@@ -22,10 +30,23 @@ function getGeminiClient() {
   });
 }
 
+/**
+ * Check if error is an authentication error (401 Unauthorized)
+ */
+function isAuthenticationError(error: any): boolean {
+  return (
+    error?.message?.includes('Unauthorized') ||
+    error?.message?.includes('expired') ||
+    error?.message?.includes('Authentication') ||
+    error?.status === 401 ||
+    error?.response?.status === 401
+  );
+}
+
 export async function extractDialogueFromScript(script: string): Promise<ExtractedData> {
   try {
     // Get fresh client instance with current auth token
-    const ai = getGeminiClient();
+    const ai = await getGeminiClient();
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: `Analyze the following script. Perform four tasks:
@@ -86,6 +107,12 @@ ${script}`,
     return extractedData;
   } catch (error) {
     console.error("Error extracting dialogue:", error);
+
+    // Check if this is an authentication error
+    if (isAuthenticationError(error)) {
+      throw new AuthenticationError("Your session has expired. Please sign in again.");
+    }
+
     throw new Error("Failed to extract dialogue and detect language from the script. Please check the script format or try again.");
   }
 }
@@ -143,9 +170,10 @@ async function generateSingleSpeakerAudio(dialogues: string[], deliveryNotes: st
 
         const requestPayload = {
             model: "gemini-2.5-flash-preview-tts",
-            contents: [{ parts: [{ text: ssml }] }],
+            contents: [{ role: "user", parts: [{ text: ssml }] }],
             config: {
                 responseModalities: [Modality.AUDIO],
+                temerature: 1,
                 speechConfig: {
                     voiceConfig: {
                         prebuiltVoiceConfig: { voiceName: voice },
@@ -157,7 +185,7 @@ async function generateSingleSpeakerAudio(dialogues: string[], deliveryNotes: st
         console.debug(`TTS API Request (Batched ${validIndices.length} lines):`, JSON.stringify(requestPayload, null, 2));
 
         // Get fresh client instance with current auth token
-        const ai = getGeminiClient();
+        const ai = await getGeminiClient();
         const response = await ai.models.generateContent(requestPayload);
         const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
         if (!base64Audio) {
@@ -167,6 +195,12 @@ async function generateSingleSpeakerAudio(dialogues: string[], deliveryNotes: st
         return base64Audio;
     } catch(e) {
         console.error(`Error during API call for batched request`, e);
+
+        // Check if this is an authentication error - re-throw to be caught by caller
+        if (isAuthenticationError(e)) {
+            throw new AuthenticationError("Your session has expired. Please sign in again.");
+        }
+
         return null;
     }
 }
@@ -233,6 +267,12 @@ export async function generateDialogueAudio(dialogues: DialogueLine[], character
 
     } catch (error) {
         console.error("Error generating audio:", error);
+
+        // Check if this is an authentication error
+        if (isAuthenticationError(error)) {
+            throw new AuthenticationError("Your session has expired. Please sign in again.");
+        }
+
         if (error instanceof Error) {
             throw error; // Re-throw the more specific error from the try block
         }

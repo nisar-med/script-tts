@@ -10,6 +10,9 @@ import { setAuthToken } from '../utils/tokenManager';
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string;
 const REDIRECT_URI = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
 
+// Check if we're using the proxy (production mode) or direct API calls (dev mode)
+const USE_PROXY = !!import.meta.env.VITE_API_BASE_URL;
+
 interface User {
     email: string;
     name: string;
@@ -63,20 +66,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Handle OAuth callback
     useEffect(() => {
-        const handleCallback = () => {
-            const hash = window.location.hash.substring(1);
-            const params = new URLSearchParams(hash);
+        const handleCallback = async () => {
+            // Handle implicit flow (development without proxy)
+            if (!USE_PROXY) {
+                const hash = window.location.hash.substring(1);
+                const params = new URLSearchParams(hash);
 
-            const token = params.get('id_token');
-            const error = params.get('error');
+                const token = params.get('id_token');
+                const error = params.get('error');
 
-            if (error) {
-                console.error('[Auth] OAuth error:', error);
-                setLoading(false);
-                return;
-            }
+                if (error) {
+                    console.error('[Auth] OAuth error:', error);
+                    setLoading(false);
+                    return;
+                }
 
-            if (token) {
+                if (!token) return;
+
                 try {
                     // Parse ID token to get user info
                     const payload = JSON.parse(atob(token.split('.')[1]));
@@ -91,14 +97,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     setIdToken(token);
                     setUser(userData);
 
-                    // Save to localStorage
+                    // Save to localStorage (no refresh token in implicit flow)
                     localStorage.setItem('google_id_token', token);
                     localStorage.setItem('google_user', JSON.stringify(userData));
 
                     // Set token for API requests
                     setAuthToken(token);
 
-                    console.log('[Auth] User authenticated:', userData.email);
+                    console.log('[Auth] User authenticated (implicit flow):', userData.email);
 
                     // Clean up URL
                     window.history.replaceState({}, document.title, window.location.pathname);
@@ -106,26 +112,113 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     console.error('[Auth] Failed to parse ID token:', error);
                 }
                 setLoading(false);
+                return;
+            }
+
+            // Authorization code flow (USE_PROXY === true)
+            const params = new URLSearchParams(window.location.search);
+            const code = params.get('code');
+            const state = params.get('state');
+            const error = params.get('error');
+
+            if (error) {
+                console.error('[Auth] OAuth error:', error);
+                setLoading(false);
+                return;
+            }
+
+            if (code) {
+                // Verify state parameter for CSRF protection
+                const savedState = localStorage.getItem('auth_state');
+                if (state !== savedState) {
+                    console.error('[Auth] State mismatch - possible CSRF attack');
+                    setLoading(false);
+                    return;
+                }
+
+                try {
+                    // Exchange authorization code for tokens via backend
+                    const response = await fetch('/api/auth/token', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ code, redirectUri: REDIRECT_URI })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Failed to exchange authorization code');
+                    }
+
+                    const data = await response.json();
+                    const { id_token, refresh_token, expires_in } = data;
+
+                    // Parse ID token to get user info
+                    const payload = JSON.parse(atob(id_token.split('.')[1]));
+
+                    const userData: User = {
+                        email: payload.email || '',
+                        name: payload.name || '',
+                        picture: payload.picture || '',
+                        sub: payload.sub || '',
+                    };
+
+                    setIdToken(id_token);
+                    setUser(userData);
+
+                    // Save to localStorage with expiry
+                    const expiresAt = Date.now() + (expires_in * 1000);
+                    localStorage.setItem('google_id_token', id_token);
+                    localStorage.setItem('google_refresh_token', refresh_token);
+                    localStorage.setItem('token_expires_at', expiresAt.toString());
+                    localStorage.setItem('google_user', JSON.stringify(userData));
+                    localStorage.removeItem('auth_state');
+
+                    // Set token for API requests
+                    setAuthToken(id_token);
+
+                    console.log('[Auth] User authenticated:', userData.email);
+
+                    // Clean up URL
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                } catch (error) {
+                    console.error('[Auth] Failed to exchange code for tokens:', error);
+                }
+                setLoading(false);
             }
         };
 
-        if (window.location.hash.includes('id_token')) {
+        // Check for both implicit flow (hash) and authorization code flow (search params)
+        if (window.location.hash.includes('id_token') || window.location.search.includes('code=')) {
             handleCallback();
         }
     }, []);
 
     const signIn = () => {
-        // Generate nonce for security
-        const nonce = Math.random().toString(36).substring(2);
-        localStorage.setItem('auth_nonce', nonce);
-
-        // Build authorization URL using hybrid flow
         const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
         authUrl.searchParams.set('client_id', GOOGLE_CLIENT_ID);
         authUrl.searchParams.set('redirect_uri', REDIRECT_URI);
-        authUrl.searchParams.set('response_type', 'id_token token'); // Hybrid flow: get both tokens
         authUrl.searchParams.set('scope', 'openid profile email');
-        authUrl.searchParams.set('nonce', nonce);
+
+        if (USE_PROXY) {
+            // Authorization code flow with refresh tokens (production)
+            const state = Math.random().toString(36).substring(2);
+            localStorage.setItem('auth_state', state);
+
+            authUrl.searchParams.set('response_type', 'code');
+            authUrl.searchParams.set('access_type', 'offline');
+            authUrl.searchParams.set('prompt', 'consent');
+            authUrl.searchParams.set('state', state);
+
+            console.log('[Auth] Using authorization code flow');
+        } else {
+            // Implicit flow (development)
+            const nonce = Math.random().toString(36).substring(2);
+            localStorage.setItem('auth_nonce', nonce);
+
+            authUrl.searchParams.set('response_type', 'id_token token');
+            authUrl.searchParams.set('nonce', nonce);
+
+            console.log('[Auth] Using implicit flow (development mode)');
+        }
 
         // Redirect to Google
         window.location.href = authUrl.toString();
@@ -135,7 +228,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(null);
         setIdToken(null);
         localStorage.removeItem('google_id_token');
+        localStorage.removeItem('google_refresh_token');
+        localStorage.removeItem('token_expires_at');
         localStorage.removeItem('google_user');
+        localStorage.removeItem('auth_state');
         localStorage.removeItem('auth_nonce');
         await setAuthToken(null);
         console.log('[Auth] User signed out');

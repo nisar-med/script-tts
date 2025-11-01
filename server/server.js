@@ -33,10 +33,94 @@ else {
   console.log("API KEY FOUND (proxy will use this)")
 }
 
-// Limit body size to 50mb
+// Limit body size to 50mb - MUST BE BEFORE ROUTE HANDLERS
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({extended: true, limit: '50mb'}));
 app.set('trust proxy', 1 /* number of proxies between user and server */)
+
+// OAuth2 token endpoint for exchanging authorization code
+app.post('/api/auth/token', async (req, res) => {
+    const { code, redirectUri } = req.body;
+
+    if (!code || !redirectUri) {
+        return res.status(400).json({ error: 'Missing code or redirectUri' });
+    }
+
+    const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+    const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+
+    if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+        console.error('[Auth] GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET not configured');
+        return res.status(500).json({ error: 'OAuth not configured' });
+    }
+
+    try {
+        const tokenResponse = await axios.post('https://oauth2.googleapis.com/token', {
+            code,
+            client_id: GOOGLE_CLIENT_ID,
+            client_secret: GOOGLE_CLIENT_SECRET,
+            redirect_uri: redirectUri,
+            grant_type: 'authorization_code'
+        });
+
+        const { id_token, refresh_token, expires_in, access_token } = tokenResponse.data;
+
+        console.log('[Auth] Token exchange successful');
+        res.json({
+            id_token,
+            refresh_token,
+            expires_in,
+            access_token
+        });
+    } catch (error) {
+        console.error('[Auth] Token exchange failed:', error.response?.data || error.message);
+        res.status(500).json({
+            error: 'Token exchange failed',
+            details: error.response?.data?.error_description
+        });
+    }
+});
+
+// OAuth2 token refresh endpoint
+app.post('/api/auth/refresh', async (req, res) => {
+    const { refresh_token } = req.body;
+
+    if (!refresh_token) {
+        return res.status(400).json({ error: 'Missing refresh_token' });
+    }
+
+    const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+    const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+
+    if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+        console.error('[Auth] GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET not configured');
+        return res.status(500).json({ error: 'OAuth not configured' });
+    }
+
+    try {
+        const tokenResponse = await axios.post('https://oauth2.googleapis.com/token', {
+            refresh_token,
+            client_id: GOOGLE_CLIENT_ID,
+            client_secret: GOOGLE_CLIENT_SECRET,
+            grant_type: 'refresh_token'
+        });
+
+        const { id_token, expires_in, access_token } = tokenResponse.data;
+
+        console.log('[Auth] Token refresh successful');
+        res.json({
+            id_token,
+            expires_in,
+            access_token
+        });
+    } catch (error) {
+        console.error('[Auth] Token refresh failed:', error.response?.data || error.message);
+        res.status(401).json({
+            error: 'Token refresh failed',
+            details: error.response?.data?.error_description
+        });
+    }
+});
 
 // Rate limiter for the proxy
 const proxyLimiter = rateLimit({
