@@ -10,6 +10,13 @@ let refreshTimer: NodeJS.Timeout | null = null;
  * Refresh the ID token using the refresh token
  */
 async function refreshToken(): Promise<string | null> {
+    // Skip token refresh in development mode (no proxy server)
+    const isDevelopment = !import.meta.env.VITE_API_BASE_URL;
+    if (isDevelopment) {
+        console.log('[TokenManager] Skipping token refresh in development mode');
+        return null;
+    }
+
     const refreshToken = localStorage.getItem('google_refresh_token');
 
     if (!refreshToken) {

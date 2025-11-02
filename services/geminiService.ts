@@ -172,8 +172,8 @@ async function generateSingleSpeakerAudio(dialogues: string[], deliveryNotes: st
             model: "gemini-2.5-flash-preview-tts",
             contents: [{ role: "user", parts: [{ text: ssml }] }],
             config: {
+                temperature: 0,
                 responseModalities: [Modality.AUDIO],
-                temerature: 1,
                 speechConfig: {
                     voiceConfig: {
                         prebuiltVoiceConfig: { voiceName: voice },
@@ -186,8 +186,17 @@ async function generateSingleSpeakerAudio(dialogues: string[], deliveryNotes: st
 
         // Get fresh client instance with current auth token
         const ai = await getGeminiClient();
-        const response = await ai.models.generateContent(requestPayload);
-        const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+        const response = await ai.models.generateContentStream(requestPayload);
+
+        // Collect all audio chunks from the stream
+        let base64Audio = '';
+        for await (const chunk of response) {
+            const audioData = chunk.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+            if (audioData) {
+                base64Audio += audioData;
+            }
+        }
+
         if (!base64Audio) {
             console.warn(`No audio data received from the API for batched request`);
             return null;
