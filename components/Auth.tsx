@@ -1,5 +1,7 @@
 import React from 'react';
 import { GoogleIcon, LoadingSpinner } from './icons';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface AuthProps {
     onSignIn: () => void;
@@ -10,23 +12,29 @@ export const Auth: React.FC<AuthProps> = ({ onSignIn, isLoading }) => {
     if (isLoading) {
         return (
             <div className="flex flex-col items-center justify-center text-center h-64">
-                <LoadingSpinner className="w-12 h-12 text-cyan-400" />
-                <p className="mt-4 text-slate-400">Initializing...</p>
+                <LoadingSpinner className="w-12 h-12 text-primary" />
+                <p className="mt-4 text-muted-foreground">Initializing...</p>
             </div>
         );
     }
 
     return (
-        <div className="bg-slate-800 rounded-lg p-8 shadow-lg text-center max-w-md mx-auto mt-10">
-            <h2 className="text-2xl font-bold text-slate-200 mb-2">Welcome!</h2>
-            <p className="text-slate-400 mb-6">Please sign in to continue.</p>
-            <button
-                onClick={onSignIn}
-                className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-200 text-gray-700 font-semibold py-3 px-4 border border-gray-300 rounded-lg shadow-sm transition duration-300 transform hover:scale-105"
-            >
-                <GoogleIcon className="w-6 h-6" />
-                Sign in with Google
-            </button>
-        </div>
+        <Card className="max-w-md mx-auto mt-10">
+            <CardHeader>
+                <CardTitle className="text-2xl">Welcome!</CardTitle>
+                <CardDescription>Please sign in to continue.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Button
+                    onClick={onSignIn}
+                    variant="outline"
+                    className="w-full flex items-center justify-center gap-3"
+                    size="lg"
+                >
+                    <GoogleIcon className="w-5 h-5" />
+                    Sign in with Google
+                </Button>
+            </CardContent>
+        </Card>
     );
 };
