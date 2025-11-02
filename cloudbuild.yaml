@@ -30,7 +30,7 @@ steps:
   - '--platform=managed'
   - '--allow-unauthenticated'
   # Set run-time environment variables
-  - '--set-env-vars=GEMINI_API_KEY=${_GEMINI_API_KEY},GOOGLE_CLIENT_ID=${_VITE_GOOGLE_CLIENT_ID}'
+  - '--set-env-vars=GEMINI_API_KEY=${_GEMINI_API_KEY},GOOGLE_CLIENT_ID=${_VITE_GOOGLE_CLIENT_ID},GOOGLE_CLIENT_SECRET=${_GOOGLE_CLIENT_SECRET}'
 
 # Specify the logging option to resolve the service account permission issue
 options:
@@ -43,3 +43,4 @@ substitutions:
   _LOCATION: 'us-west1'
   _GEMINI_API_KEY: ''
   _VITE_GOOGLE_CLIENT_ID: ''
+  _GOOGLE_CLIENT_SECRET: ''
