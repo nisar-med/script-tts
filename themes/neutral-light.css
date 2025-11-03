@@ -1,0 +1,69 @@
+@theme {
+  /* shadcn Neutral Theme - Tailwind v4 Compatible */
+
+  /* Base Colors */
+  --color-background: oklch(1 0 0);                  /* Pure white background */
+  --color-foreground: oklch(0.145 0 0);              /* Near black text */
+
+  /* Card */
+  --color-card: oklch(1 0 0);
+  --color-card-foreground: oklch(0.145 0 0);
+
+  /* Popover */
+  --color-popover: oklch(1 0 0);
+  --color-popover-foreground: oklch(0.145 0 0);
+
+  /* Primary */
+  --color-primary: oklch(0.205 0 0);                 /* Dark gray/black primary */
+  --color-primary-foreground: oklch(0.985 0 0);
+
+  /* Secondary */
+  --color-secondary: oklch(0.97 0 0);                /* Very light gray */
+  --color-secondary-foreground: oklch(0.205 0 0);
+
+  /* Muted */
+  --color-muted: oklch(0.97 0 0);
+  --color-muted-foreground: oklch(0.556 0 0);        /* Mid gray */
+
+  /* Accent */
+  --color-accent: oklch(0.97 0 0);
+  --color-accent-foreground: oklch(0.205 0 0);
+
+  /* Destructive */
+  --color-destructive: oklch(0.577 0.245 27.325);    /* Red-orange */
+  --color-destructive-foreground: oklch(0.985 0 0);
+  
+  /* Warning */
+  --color-warning: oklch(0.65 0.15 80);              /* Yellow */
+  --color-warning-foreground: oklch(0.2 0.04 80);
+  
+  /* Border & Input */
+  --color-border: oklch(0.922 0 0);                  /* Light gray border */
+  --color-input: oklch(0.922 0 0);
+
+  /* Ring */
+  --color-ring: oklch(0.708 0 0);                    /* Medium gray ring */
+
+  /* Chart colors */
+  --color-chart-1: oklch(0.646 0.222 41.116);        /* Orange */
+  --color-chart-2: oklch(0.6 0.118 184.704);         /* Teal/Cyan */
+  --color-chart-3: oklch(0.398 0.07 227.392);        /* Blue */
+  --color-chart-4: oklch(0.828 0.189 84.429);        /* Yellow-green */
+  --color-chart-5: oklch(0.769 0.188 70.08);         /* Yellow */
+
+  /* Sidebar */
+  --color-sidebar: oklch(0.985 0 0);
+  --color-sidebar-foreground: oklch(0.145 0 0);
+  --color-sidebar-primary: oklch(0.205 0 0);
+  --color-sidebar-primary-foreground: oklch(0.985 0 0);
+  --color-sidebar-accent: oklch(0.97 0 0);
+  --color-sidebar-accent-foreground: oklch(0.205 0 0);
+  --color-sidebar-border: oklch(0.922 0 0);
+  --color-sidebar-ring: oklch(0.708 0 0);
+
+  /* Radius */
+  --radius: 0.625rem;
+  --radius-lg: 0.5rem;
+  --radius-md: calc(0.5rem - 2px);
+  --radius-sm: calc(0.5rem - 4px);
+}

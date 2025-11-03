@@ -16,7 +16,7 @@ export const ScriptInput: React.FC<ScriptInputProps> = ({ script, setScript, onE
         <div className="w-full">
             <h2 className="text-2xl font-bold text-foreground mb-4">1. Paste Your Script</h2>
             <Card>
-                <CardContent className="pt-6">
+                <CardContent className="p-4">
                     <Textarea
                         value={script}
                         onChange={(e) => setScript(e.target.value)}

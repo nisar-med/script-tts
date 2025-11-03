@@ -18,7 +18,7 @@ export const Header: React.FC<HeaderProps> = ({ user, onSignOut }) => {
             <div className="flex justify-between items-center mb-2 min-h-[50px]">
                 <div className="w-1/3"></div> {/* Spacer */}
                 <div className="w-1/3 text-center">
-                    <h1 className="text-4xl sm:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-teal-500">
+                    <h1 className="text-4xl sm:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-primary to-accent">
                         Script to Multilingual Audio
                     </h1>
                 </div>
@@ -31,7 +31,7 @@ export const Header: React.FC<HeaderProps> = ({ user, onSignOut }) => {
                             </div>
                             <Button
                                 onClick={onSignOut}
-                                variant="outline"
+                                variant="secondary"
                                 className="flex-shrink-0"
                             >
                                 Sign Out
