@@ -1,0 +1,58 @@
+@theme {
+  /* shadcn/ui Dark Slate Theme - Tailwind v4 Compatible */
+
+  /* Base Colors */
+  --color-background: oklch(0.2 0.05 240);           /* Dark slate background */
+  --color-foreground: oklch(0.98 0.01 240);          /* Light text */
+
+  /* Card */
+  --color-card: oklch(0.3 0.04 240);                 /* Slightly lighter than background */
+  --color-card-foreground: oklch(0.98 0.01 240);
+
+  /* Popover */
+  --color-popover: oklch(0.3 0.04 240);
+  --color-popover-foreground: oklch(0.98 0.01 240);
+
+  /* Primary - Cyan accent */
+  --color-primary: oklch(0.55 0.15 200);             /* Cyan primary */
+  --color-primary-foreground: oklch(0.98 0.01 240);
+
+  /* Secondary */
+  --color-secondary: oklch(0.25 0.04 240);
+  --color-secondary-foreground: oklch(0.98 0.01 240);
+
+  /* Muted */
+  --color-muted: oklch(0.25 0.04 240);
+  --color-muted-foreground: oklch(0.65 0.02 240);
+
+  /* Accent */
+  --color-accent: oklch(0.35 0.04 240);
+  --color-accent-foreground: oklch(0.98 0.01 240);
+
+  /* Destructive */
+  --color-destructive: oklch(0.6 0.2 25);            /* Red */
+  --color-destructive-foreground: oklch(0.98 0.01 240);
+
+  /* Warning */
+  --color-warning: oklch(0.75 0.15 80);              /* Yellow */
+  --color-warning-foreground: oklch(0.98 0.01 240);
+
+  /* Border & Input */
+  --color-border: oklch(0.35 0.04 240);
+  --color-input: oklch(0.25 0.04 240);
+
+  /* Ring */
+  --color-ring: oklch(0.55 0.15 200);
+
+  /* Chart colors */
+  --color-chart-1: oklch(0.65 0.15 25);
+  --color-chart-2: oklch(0.5 0.12 180);
+  --color-chart-3: oklch(0.4 0.08 210);
+  --color-chart-4: oklch(0.7 0.15 80);
+  --color-chart-5: oklch(0.7 0.18 45);
+
+  /* Radius */
+  --radius-lg: 0.5rem;
+  --radius-md: calc(0.5rem - 2px);
+  --radius-sm: calc(0.5rem - 4px);
+}

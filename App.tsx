@@ -10,6 +10,7 @@ import { DialoguePreview } from './components/DialoguePreview';
 import { AudioPlayer } from './components/AudioPlayer';
 import { LoadingSpinner } from './components/icons';
 import { useAuth } from './contexts/AuthContext';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const App: React.FC = () => {
     // Auth State from context
@@ -172,20 +173,22 @@ const App: React.FC = () => {
     }, [dialogues]);
 
     return (
-        <div className="min-h-screen bg-slate-900 text-slate-200 font-sans p-4 sm:p-6 lg:p-8">
+        <div className="min-h-screen bg-background text-foreground font-sans p-4 sm:p-6 lg:p-8">
             <main className="max-w-4xl mx-auto">
                 <Header user={user} onSignOut={handleSignOut} />
 
                 {error && (
-                    <div className="bg-red-900/50 border border-red-700 text-red-300 px-4 py-3 rounded-lg relative mb-6" role="alert">
-                        <strong className="font-bold">Error: </strong>
-                        <span className="block sm:inline">{error}</span>
-                    </div>
+                    <Alert variant="destructive" className="mb-6">
+                        <AlertDescription>
+                            <strong className="font-bold">Error: </strong>
+                            {error}
+                        </AlertDescription>
+                    </Alert>
                 )}
                 
                 {authLoading ? (
                      <div className="flex items-center justify-center h-64">
-                        <LoadingSpinner className="w-12 h-12 text-cyan-400" />
+                        <LoadingSpinner className="w-12 h-12 text-primary" />
                     </div>
                 ) : user ? (
                     <div className="space-y-8">

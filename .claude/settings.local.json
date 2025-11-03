@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(node --version:*)",
-      "Bash(npm uninstall:*)"
+      "Bash(npm uninstall:*)",
+      "Bash(npm install:*)"
     ],
     "deny": [],
     "ask": []
