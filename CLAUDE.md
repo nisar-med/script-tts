@@ -6,6 +6,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A text-to-speech application that converts movie/theatre scripts into multi-character audio using Google's Gemini AI. Users authenticate via Google OAuth, the app extracts dialogue from scripts, detects character genders, and generates natural-sounding audio with different voices for each character.
 
+## Constitution & Design System
+
+**CRITICAL**: See `.specify/memory/constitution.md` for complete governance principles. Key requirements:
+
+1. **Component-First**: All UI MUST use shadcn/ui components. Custom components MUST extend shadcn/ui base components.
+2. **TailwindCSS v4 Theme**: All styling MUST use CSS custom properties from theme files (`themes/neutral-light.css`, `themes/slate-dark.css`). NO hardcoded colors or inline styles. Use oklch() color space.
+3. **Type-Safe**: Strict TypeScript with interfaces in `types.ts`. No `any` types without documentation.
+4. **Security-First**: API keys never exposed to client. Production uses `/api-proxy` with OAuth authentication.
+5. **Audio UX**: User control, progress indicators, and error handling for all audio operations.
+
 ## Architecture
 
 ### Frontend (React + Vite + TypeScript)
@@ -132,6 +142,28 @@ PORT=3000  # optional, defaults to 3000
 
 ## Key Technical Details
 
+### Design System (TailwindCSS v4 + shadcn/ui)
+
+**Theme System**:
+- Uses TailwindCSS v4 with `@theme` directive in CSS files
+- Two theme files: `themes/neutral-light.css` (light) and `themes/slate-dark.css` (dark)
+- Colors defined using oklch() color space for perceptual uniformity
+- Theme switching via CSS imports in `index.css` (no JavaScript required)
+- All components use CSS custom properties: `--color-primary`, `--color-background`, etc.
+
+**Component Library**:
+- All UI components built on shadcn/ui foundation (configured in `components.json`)
+- Base components in `components/ui/` (button, card, input, select, textarea, etc.)
+- Custom components in `components/` extend shadcn/ui patterns
+- Icons use lucide-react library for consistency
+- Styling utilities: `utils/cn.ts` combines clsx + tailwind-merge
+
+**Type Safety**:
+- All interfaces defined in `types.ts`: DialogueLine, Character, ExtractedData, Voice, etc.
+- TypeScript strict mode enabled in `tsconfig.json`
+- Props interfaces required for all React components
+- API responses have corresponding TypeScript interfaces
+
 ### Voice Assignment Logic
 - Gemini detects character genders during extraction
 - Male/neutral characters assigned from MALE_VOICES pool (Puck, Charon, Fenrir)
@@ -160,12 +192,29 @@ PORT=3000  # optional, defaults to 3000
 
 ## Important Files
 
-- **types.ts**: TypeScript interfaces for DialogueLine, Character, ExtractedData
+### Governance & Standards
+- **.specify/memory/constitution.md**: Project constitution with core principles (Component-First, Theme System, Type-Safe, Security-First, Audio UX)
+
+### Type Definitions & Configuration
+- **types.ts**: TypeScript interfaces for DialogueLine, Character, ExtractedData, Voice, etc.
 - **constants.ts**: Voice names and supported languages configuration
+- **components.json**: shadcn/ui configuration (aliases, style, baseColor)
+- **tsconfig.json**: TypeScript strict mode configuration
+
+### Design System
+- **themes/neutral-light.css**: Light theme with oklch() color definitions
+- **themes/slate-dark.css**: Dark theme with oklch() color definitions
+- **index.css**: TailwindCSS v4 imports and active theme selection
+- **utils/cn.ts**: Class name utility combining clsx + tailwind-merge
+- **components/ui/**: shadcn/ui base components (button, card, input, select, etc.)
+
+### Core Application
 - **utils/audioUtils.ts**: PCM/WAV encoding, base64 decoding, audio concatenation
 - **utils/tokenManager.ts**: Token refresh logic with automatic scheduling and expiry checking
 - **services/geminiService.ts**: Gemini SDK configuration with conditional proxy routing and automatic token refresh
 - **contexts/AuthContext.tsx**: OAuth 2.0 authorization code flow implementation with refresh token support
+
+### Backend
 - **server/server.js**: Express server with OAuth endpoints and JWT-based Google ID token validation
 - **server/auth/oidc.js**: Google OIDC token verification using public certificates
 

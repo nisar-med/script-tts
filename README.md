@@ -104,6 +104,7 @@ Or set up a Cloud Build trigger with these substitution variables:
 
 ## Documentation
 
+- [.specify/memory/constitution.md](.specify/memory/constitution.md) - Project constitution and core principles
 - [CLAUDE.md](CLAUDE.md) - Complete technical documentation for development
 - [types.ts](types.ts) - TypeScript interfaces
 - [constants.ts](constants.ts) - Voice and language configurations
