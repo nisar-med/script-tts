@@ -13,7 +13,17 @@ export class AuthenticationError extends Error {
 
 // Configuration based on environment
 const useProxy = import.meta.env.VITE_API_BASE_URL;
-const apiBaseUrl = useProxy ? `${window.location.origin}${import.meta.env.VITE_API_BASE_URL}` : undefined;
+const useMockProxy = import.meta.env.VITE_USE_MOCK_PROXY === 'true';
+
+// Determine the base URL for API calls
+let apiBaseUrl: string | undefined;
+if (useProxy) {
+  // Production mode: use backend proxy
+  apiBaseUrl = `${window.location.origin}${import.meta.env.VITE_API_BASE_URL}`;
+} else if (useMockProxy) {
+  // Development mode with mock proxy: use relative URLs (Vite will proxy to mitmproxy)
+  apiBaseUrl = `${window.location.origin}`;
+}
 
 // Function to get SDK instance with current auth token
 async function getGeminiClient() {

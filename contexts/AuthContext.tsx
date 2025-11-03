@@ -193,6 +193,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     const signIn = () => {
+        // Don't attempt sign-in if GOOGLE_CLIENT_ID is not configured
+        if (!GOOGLE_CLIENT_ID) {
+            console.warn('[Auth] Cannot sign in - GOOGLE_CLIENT_ID not configured');
+            alert('Authentication is not configured. In dev mode, you can use the app without signing in.');
+            return;
+        }
+
         const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
         authUrl.searchParams.set('client_id', GOOGLE_CLIENT_ID);
         authUrl.searchParams.set('redirect_uri', REDIRECT_URI);
@@ -237,8 +244,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('[Auth] User signed out');
     };
 
+    // Auth is required in both dev and production
     if (!GOOGLE_CLIENT_ID) {
-        console.error('[Auth] GOOGLE_CLIENT_ID not set in environment variables');
+        console.error('[Auth] GOOGLE_CLIENT_ID is required');
         return <div>Google Client ID not configured</div>;
     }
 
