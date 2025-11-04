@@ -27,7 +27,6 @@ export const Auth: React.FC<AuthProps> = ({ onSignIn, isLoading }) => {
             <CardContent>
                 <Button
                     onClick={onSignIn}
-                    variant="outline"
                     className="w-full flex items-center justify-center gap-3"
                     size="lg"
                 >
