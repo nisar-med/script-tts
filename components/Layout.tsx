@@ -33,6 +33,16 @@ export const Layout: React.FC = () => {
                     Home
                   </Link>
                   <Link
+                    to="/projects"
+                    className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      isActive('/projects')
+                        ? 'bg-primary/10 text-primary'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                    }`}
+                  >
+                    Projects
+                  </Link>
+                  <Link
                     to="/about"
                     className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                       isActive('/about')
