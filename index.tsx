@@ -1,8 +1,28 @@
 import './index.css';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import App from './App';
+import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import { Layout } from './components/Layout';
+import { HomePage } from './pages/HomePage';
+import { AboutPage } from './pages/AboutPage';
+
+const router = createBrowserRouter([
+  {
+    path: '/',
+    element: <Layout />,
+    children: [
+      {
+        index: true,
+        element: <HomePage />,
+      },
+      {
+        path: 'about',
+        element: <AboutPage />,
+      },
+    ],
+  },
+]);
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -13,7 +33,7 @@ const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
     <AuthProvider>
-      <App />
+      <RouterProvider router={router} />
     </AuthProvider>
   </React.StrictMode>
 );
